@@ -1,0 +1,121 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ================= HoneyBadger honey-on-paper theme =================
+   Palette + type carried over from HoneyBadger Courses (light theme):
+   warm paper background, honey-gold CTAs, Montserrat headings, Inter body. */
+
+:root {
+  --bg: #faf7f0;
+  --gold: #a87800; /* readable gold for text/accents */
+  --honey: #f0b400; /* bright honey for CTAs */
+}
+
+@layer base {
+  html { -webkit-font-smoothing: antialiased; }
+  body {
+    @apply bg-paper text-ink font-sans text-[14px];
+    background-image:
+      radial-gradient(1100px 520px at 85% -10%, rgba(194, 98, 10, 0.06), transparent 60%),
+      radial-gradient(800px 460px at -10% 110%, rgba(168, 120, 0, 0.05), transparent 55%);
+    background-attachment: fixed;
+  }
+  h1, h2, h3, h4 { @apply font-display; }
+  ::selection { background: var(--honey); color: #221900; }
+  :focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 8px; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition: none !important; animation: none !important; }
+  }
+}
+
+@layer components {
+  /* --- buttons: big touch targets everywhere --- */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 font-display font-semibold text-[14px]
+      rounded-xl px-[18px] min-h-[46px] transition-colors select-none cursor-pointer;
+  }
+  .btn-gold { @apply btn bg-honey text-[#221900]; }
+  .btn-gold:hover { @apply bg-[#FFC52C] shadow-[0_6px_20px_rgba(240,180,0,.35)]; }
+  .btn-ghost { @apply btn bg-surface2 text-ink border border-line; }
+  .btn-ghost:hover { @apply border-[#CBC1A4]; }
+  .btn-danger { @apply btn bg-warn/10 text-warn border border-warn/25; }
+  .btn-sm { @apply min-h-[38px] px-3.5 text-[13px]; }
+
+  .card { @apply bg-surface border border-line-soft rounded-xl shadow-card; }
+  .card-pad { @apply card p-4; }
+
+  .sec-h { @apply font-display font-bold text-[12.5px] uppercase tracking-[0.6px] text-dim mt-6 mb-3; }
+
+  .pill { @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold font-display whitespace-nowrap; }
+  .pill-gold { @apply pill bg-honey/15 text-gold; }
+  .pill-neutral { @apply pill bg-surface2 text-soft; }
+  .pill-good { @apply pill bg-good/10 text-good; }
+  .pill-warn { @apply pill bg-warn/10 text-warn; }
+  .pill-dim { @apply pill bg-surface3 text-soft; }
+
+  /* --- forms: forgiving, large, obvious --- */
+  .field { @apply mb-4; }
+  .field > label { @apply block text-[12.5px] font-semibold font-display text-soft mb-1.5; }
+  .field input, .field select, .field textarea {
+    @apply w-full bg-white border border-line rounded-xl px-3.5 text-ink text-[15px] min-h-[48px] transition-colors;
+  }
+  .field textarea { @apply py-3; }
+  .field input:focus, .field select:focus, .field textarea:focus { @apply outline-none border-gold; }
+  .field .hint { @apply text-dim text-[11.5px] mt-1.5 leading-snug; }
+  .field .err { @apply text-warn text-[12px] mt-1.5 font-medium; }
+
+  .av { @apply rounded-full grid place-items-center font-bold font-display text-[#221900] shrink-0 bg-gradient-to-br from-honey to-honey-dark; }
+
+  /* list rows — tall enough for thumbs */
+  .lrow { @apply flex items-center gap-3 w-full text-left px-3 py-3 min-h-[56px] border-b border-line-soft last:border-b-0 transition-colors; }
+  a.lrow:hover, button.lrow:hover { @apply bg-surface2/60; }
+
+  .seg { @apply inline-flex bg-surface2 border border-line rounded-full p-[3px] gap-0.5; }
+  .seg button { @apply px-3.5 py-2 rounded-full text-[12.5px] font-semibold text-soft transition-colors min-h-[36px]; }
+  .seg button.on { @apply bg-honey text-[#221900]; }
+
+  /* tighter on phones so all four tabs fit without a hidden scroll edge */
+  .tabbar { @apply flex gap-0.5 sm:gap-1 border-b border-line mb-4 overflow-x-auto; }
+  .tabbar button { @apply px-2 sm:px-3.5 py-2.5 text-[12.5px] sm:text-[13px] font-display font-semibold text-dim whitespace-nowrap border-b-2 border-transparent -mb-px transition-colors; }
+  .tabbar button.on { @apply text-gold border-honey; }
+
+  .kpi { @apply card p-4; }
+  .kpi .k { @apply text-dim text-[10.5px] font-semibold font-display uppercase tracking-[0.4px]; }
+  .kpi .v { @apply font-display font-bold text-[22px] mt-1.5; }
+
+  .table-wrap { @apply overflow-x-auto; }
+  table.tbl { @apply w-full text-[13px] border-collapse; }
+  .tbl th { @apply text-left text-dim font-display font-bold text-[11px] uppercase tracking-[0.5px] px-3 py-2.5 border-b border-line whitespace-nowrap; }
+  .tbl td { @apply px-3 py-3 border-b border-line-soft; }
+  .tbl tr:last-child td { @apply border-b-0; }
+
+  /* modal */
+  .scrim { @apply fixed inset-0 bg-black/40 backdrop-blur-[3px] z-[80] grid place-items-center p-4; }
+  .sheet { @apply w-full max-w-[480px] max-h-[90vh] overflow-y-auto bg-surface border border-line rounded-2xl p-6 shadow-lift; }
+
+  /* attendance status buttons */
+  .att-btn { @apply min-w-[46px] min-h-[46px] rounded-xl grid place-items-center font-display font-bold text-[13px] border transition-colors select-none; }
+}
+
+/* nice thin scrollbars, matching hb */
+html { scrollbar-width: thin; scrollbar-color: #d8cfb8 transparent; }
+
+/* =========================== PRINT =========================== */
+/* Printable documents render inside .print-area — a portal directly under
+   <body>, hidden on screen. On print, the app root is removed from layout
+   entirely so pagination comes only from the document itself: receipts,
+   report cards, defaulters, rosters. */
+.print-area { display: none; }
+@media print {
+  html, body { background: #fff !important; height: auto; }
+  body.printing #root { display: none; }
+  body.printing .print-area { display: block; }
+  .no-print { display: none !important; }
+  .print-page { page-break-after: always; }
+  .print-page:last-child { page-break-after: auto; }
+  /* long tables: never split a row across pages; column headers repeat per page */
+  .tbl tr { break-inside: avoid; }
+  .tbl thead { display: table-header-group; }
+}
+@page { margin: 14mm; }
