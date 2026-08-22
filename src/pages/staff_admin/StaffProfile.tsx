@@ -44,7 +44,7 @@ export default function StaffProfile() {
 
   return (
     <>
-      <Link to="/school-admin/staff" className="no-print inline-flex items-center gap-1.5 text-soft font-display font-medium text-[13.5px] mb-4 hover:text-gold">
+      <Link to="/staff-admin/staff" className="no-print inline-flex items-center gap-1.5 text-soft font-display font-medium text-[13.5px] mb-4 hover:text-gold">
         <Icon name="chevL" size={16} />{t('back')}
       </Link>
 
@@ -89,7 +89,7 @@ export default function StaffProfile() {
       <StatusCard teacher={raw} />
       <AuditCard teacherId={raw.id} />
 
-      {editing && <EditDetailsModal teacher={raw} onClose={() => setEditing(false)} onDeleted={() => navigate('/school-admin/staff')} />}
+      {editing && <EditDetailsModal teacher={raw} onClose={() => setEditing(false)} onDeleted={() => navigate('/staff-admin/staff')} />}
     </>
   )
 }

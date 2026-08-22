@@ -33,12 +33,12 @@ function actor(): { role: string | null; teacherId: string | null } {
 /** True when the current user may read this teacher's phone/email. */
 export function canSeeContact(teacherId: string): boolean {
   const { role, teacherId: self } = actor()
-  return role === 'admin' || (role === 'teacher' && self === teacherId)
+  return role === 'school-admin' || (role === 'teacher' && self === teacherId)
 }
 
 /** Only an admin may edit staff records at all. */
 function assertAdmin(action: string): void {
-  if (actor().role !== 'admin') {
+  if (actor().role !== 'school-admin') {
     throw new Error(`Not permitted: ${action} requires an administrator.`)
   }
 }

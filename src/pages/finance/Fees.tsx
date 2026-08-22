@@ -6,7 +6,7 @@ import { Modal } from '../../components/Modal'
 import { toast } from '../../components/Toast'
 import { PaginatedReport, PrintArea, PrintFoot, PrintHead, printNow } from '../../components/Print'
 import { useDb } from '../../services/db'
-import { addFeeItem, balanceFor, defaulterRows, paidRows, recordPayment } from '../../services/fees'
+import { balanceFor, defaulterRows, paidRows, recordPayment } from '../../services/fees'
 import { ReceiptsExhausted } from '../../services/receipts'
 import { sectionLabel } from '../../lib/derive'
 import { fmtDate, fmtDateShort, todayISO } from '../../lib/dates'
@@ -14,12 +14,12 @@ import { fmtAmount, fmtETB } from '../../lib/money'
 import { useT } from '../../store/session'
 import type { Payment, PaymentLine } from '../../types'
 
-type Tab = 'structure' | 'out'
+type Tab = 'all' | 'outstanding'
 
 export default function Fees() {
   const t = useT()
   const [params, setParams] = useSearchParams()
-  const tab: Tab = params.get('tab') === 'out' ? 'out' : 'structure'
+  const tab: Tab = params.get('tab') === 'outstanding' ? 'outstanding' : 'all'
   const paying = params.get('pay') === '1'
   const [receipt, setReceipt] = useState<Payment | null>(null)
   const [printDefaulters, setPrintDefaulters] = useState(false)
@@ -40,17 +40,15 @@ export default function Fees() {
       </PageTitle>
 
       <div className="tabbar" role="tablist">
-        <button role="tab" aria-selected={tab === 'structure'} className={tab === 'structure' ? 'on' : ''} onClick={() => setTab('structure')}>{t('feeStructure')}</button>
-        <button role="tab" aria-selected={tab === 'out'} className={tab === 'out' ? 'on' : ''} onClick={() => setTab('out')}>{t('payments')}</button>
+        <button role="tab" aria-selected={tab === 'all'} className={tab === 'all' ? 'on' : ''} onClick={() => setTab('all')}>{t('allPayments')}</button>
+        <button role="tab" aria-selected={tab === 'outstanding'} className={tab === 'outstanding' ? 'on' : ''} onClick={() => setTab('outstanding')}>{t('outstandingTitle')}</button>
       </div>
 
-      {tab === 'structure' && <StructureTab />}
-      {tab === 'out' && (
-        <BalancesTab
+      <BalancesTab
           onPrintDefaulters={() => { setPrintDefaulters(true); printNow(() => setPrintDefaulters(false)) }}
           onPrintPaid={() => { setPrintPaid(true); printNow(() => setPrintPaid(false)) }}
+          view={tab}
         />
-      )}
 
       {paying && (
         <PayModal
@@ -62,88 +60,6 @@ export default function Fees() {
       {printDefaulters && <DefaultersPrint />}
       {printPaid && <PaidPrint />}
     </>
-  )
-}
-
-/* ---------------- fee structure per grade ---------------- */
-
-function StructureTab() {
-  const t = useT()
-  const db = useDb()
-  const [adding, setAdding] = useState<string | null>(null)
-
-  return (
-    <>
-      <p className="text-soft text-[13px] mb-4">{t('feeStructureLead')}</p>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {db.grades.map((g) => {
-          const items = db.feeItems.filter((f) => f.gradeId === g.id)
-          const total = items.reduce((a, f) => a + f.amount, 0)
-          return (
-            <div key={g.id} className="card-pad">
-              <div className="flex items-center justify-between mb-2">
-                <b className="font-display text-[15px]">{g.name}</b>
-                <span className="pill-gold">{fmtETB(total)}</span>
-              </div>
-              {items.map((f) => (
-                <div key={f.id} className="flex justify-between items-center py-2.5 border-b border-line-soft text-[13.5px]">
-                  <span>
-                    {f.name}
-                    <small className="text-dim block text-[11px]">{f.kind === 'term' ? t('perTerm') : t('perYear')}</small>
-                  </span>
-                  <b className="font-display">{fmtETB(f.amount)}</b>
-                </div>
-              ))}
-              <button className="btn-ghost btn-sm w-full mt-3" onClick={() => setAdding(g.id)}>
-                <Icon name="plus" size={15} />{t('addFeeItem')}
-              </button>
-            </div>
-          )
-        })}
-      </div>
-      {adding && <AddFeeModal gradeId={adding} onClose={() => setAdding(null)} />}
-    </>
-  )
-}
-
-function AddFeeModal({ gradeId, onClose }: { gradeId: string; onClose: () => void }) {
-  const t = useT()
-  const db = useDb()
-  const [name, setName] = useState('')
-  const [amount, setAmount] = useState('')
-  const [kind, setKind] = useState<'term' | 'annual'>('term')
-  const grade = db.grades.find((g) => g.id === gradeId)!
-
-  const submit = async () => {
-    const amt = parseInt(amount, 10)
-    if (!name.trim() || !amt || amt <= 0) return
-    await addFeeItem(gradeId, name.trim(), amt, kind)
-    toast(t('settingsSaved'))
-    onClose()
-  }
-
-  return (
-    <Modal title={`${t('addFeeItem')} — ${grade.name}`} onClose={onClose}>
-      <div className="field">
-        <label htmlFor="af-name">{t('feeName')}</label>
-        <input id="af-name" value={name} onChange={(e) => setName(e.target.value)} autoFocus placeholder="e.g. Sports fee" />
-      </div>
-      <div className="field">
-        <label htmlFor="af-amt">{t('amountETB')}</label>
-        <input id="af-amt" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value.replace(/\D/g, ''))} />
-      </div>
-      <div className="field">
-        <label>{t('term')}</label>
-        <div className="seg">
-          <button type="button" className={kind === 'term' ? 'on' : ''} onClick={() => setKind('term')}>{t('perTerm')}</button>
-          <button type="button" className={kind === 'annual' ? 'on' : ''} onClick={() => setKind('annual')}>{t('perYear')}</button>
-        </div>
-      </div>
-      <div className="flex gap-2.5 mt-4">
-        <button className="btn-ghost flex-1" onClick={onClose}>{t('cancel')}</button>
-        <button className="btn-gold flex-1" onClick={submit}>{t('save')}</button>
-      </div>
-    </Modal>
   )
 }
 
@@ -342,16 +258,10 @@ function ReceiptBody({ payment }: { payment: Payment }) {
 
 /** Outstanding is the default view — chasing money is the daily job; Paid is
  *  the reconciliation view. */
-function BalancesTab({ onPrintDefaulters, onPrintPaid }: { onPrintDefaulters: () => void; onPrintPaid: () => void }) {
-  const t = useT()
-  const [view, setView] = useState<'out' | 'paid'>('out')
+function BalancesTab({ view, onPrintDefaulters, onPrintPaid }: { view: "outstanding" | "all"; onPrintDefaulters: () => void; onPrintPaid: () => void;}) {
   return (
     <>
-      <div className="seg max-w-[320px] mb-4">
-        <button className={view === 'out' ? 'on' : ''} onClick={() => setView('out')}>{t('outstandingTitle')}</button>
-        <button className={view === 'paid' ? 'on' : ''} onClick={() => setView('paid')}>{t('paidTitle')}</button>
-      </div>
-      {view === 'out' ? <OutstandingList onPrint={onPrintDefaulters} /> : <PaidList onPrint={onPrintPaid} />}
+      {view === 'outstanding' ? <OutstandingList onPrint={onPrintDefaulters} /> : <PaidList onPrint={onPrintPaid} />}
     </>
   )
 }

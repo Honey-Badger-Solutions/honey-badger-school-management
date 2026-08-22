@@ -24,7 +24,7 @@ function CompliancePanel() {
     const teacher = teacherId ? db.teachers.find((x) => x.id === teacherId) : undefined
     return teacher ? personName(teacher) : t('unassignedTeacher')
   }
-  const linkFor = (teacherId: string | null) => (teacherId ? `/admin/staff/${teacherId}` : '/admin/staff')
+  const linkFor = (teacherId: string | null) => (teacherId ? `/school-admin/staff/${teacherId}` : '/school-admin/staff')
 
   return (
     <>
@@ -119,11 +119,11 @@ export default function Dashboard() {
 
       {/* quick actions first — the two things the office does all day */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
-        <Link to="/admin/students?register=1" className="btn-gold !justify-start !min-h-[58px]">
+        <Link to="/school-admin/students?register=1" className="btn-gold !justify-start !min-h-[58px]">
           <Icon name="plus" size={20} />
           {t('qaRegister')}
         </Link>
-        <Link to="/admin/fees?pay=1" className="btn-ghost !justify-start !min-h-[58px]">
+        <Link to="/school-admin/fees?pay=1" className="btn-ghost !justify-start !min-h-[58px]">
           <Icon name="receipt" size={20} className="text-gold" />
           {t('qaPayment')}
         </Link>
@@ -196,7 +196,7 @@ export default function Dashboard() {
             <i className="block h-full rounded-full bg-gradient-to-r from-honey-dark to-honey" style={{ width: `${(collected / Math.max(1, collected + outstanding)) * 100}%` }} />
           </div>
         </div>
-        <Link to="/admin/fees?tab=out" className="btn-ghost btn-sm shrink-0 w-full sm:w-auto">{t('viewAll')}</Link>
+        <Link to="/school-admin/fees?tab=out" className="btn-ghost btn-sm shrink-0 w-full sm:w-auto">{t('viewAll')}</Link>
       </div>
     </>
   )

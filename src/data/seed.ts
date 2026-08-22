@@ -93,7 +93,7 @@ export function buildSeed(): Db {
   ]
   const EMPLOYMENT: Teacher['employmentType'][] = [
     'full_time', 'full_time', 'full_time', 'full_time', 'full_time', 'full_time',
-    'full_time', 'part_time', 'full_time', 'contract', 'full_time', 'part_time',
+    'full_time', 'part_time', 'full_time', 'part_time', 'full_time', 'part_time',
   ]
   for (let i = 0; i < 12; i++) {
     const sex = i % 3 === 2 ? 'F' : rnd() < 0.5 ? 'F' : 'M'

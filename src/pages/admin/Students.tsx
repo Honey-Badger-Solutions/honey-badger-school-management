@@ -100,7 +100,7 @@ export default function Students() {
             <span className="w-[17px]" />
           </div>
           {list.slice(0, 200).map((s) => (
-            <Link key={s.id} to={`/admin/students/${s.id}`} className="lrow">
+            <Link key={s.id} to={`/school-admin/students/${s.id}`} className="lrow">
               <Avatar name={s.firstName} />
               <span className="flex-1 min-w-0">
                 <b className="text-[14px] block truncate">{personName(s)}</b>

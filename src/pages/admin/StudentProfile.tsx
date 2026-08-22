@@ -25,7 +25,7 @@ export default function StudentProfile() {
 
   return (
     <>
-      <Link to="/admin/students" className="no-print inline-flex items-center gap-1.5 text-soft font-display font-medium text-[13.5px] mb-4 hover:text-gold">
+      <Link to="/school-admin/students" className="no-print inline-flex items-center gap-1.5 text-soft font-display font-medium text-[13.5px] mb-4 hover:text-gold">
         <Icon name="chevL" size={16} />{t('back')}
       </Link>
 

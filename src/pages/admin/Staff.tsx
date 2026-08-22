@@ -62,7 +62,7 @@ export default function Staff() {
             .filter(Boolean)
           const homeroom = db.sections.find((s) => s.homeroomTeacherId === x.id)
           return (
-            <Link key={x.id} to={`/admin/staff/${x.id}`} className="lrow">
+            <Link key={x.id} to={`/school-admin/staff/${x.id}`} className="lrow">
               <Avatar name={x.firstName} />
               <span className="flex-1 min-w-0 text-left">
                 <b className="text-[14px] block truncate">{personName(x)}</b>

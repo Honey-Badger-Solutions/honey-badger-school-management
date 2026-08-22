@@ -37,6 +37,10 @@ export default {
       maxWidth: {
         app: '1180px',
       },
+      screens: {
+        xs: "380px",
+        xmd: "580px",
+      },
     },
   },
   plugins: [],
