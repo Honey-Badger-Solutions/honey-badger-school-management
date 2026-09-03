@@ -412,6 +412,11 @@ const en = {
   invalidMark: "Out of range",
   myStudentsTitle: "My students",
   readOnly: "Read-only",
+
+  emptyStateTitle: "Nothing to show here",
+  emptyStateSub: "Check back later or try a different filter.",
+  emptyStateMaintainance: "This feature is under maintenance, try again later.",
+
 };
 
 export type Dict = typeof en;

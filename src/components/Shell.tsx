@@ -17,13 +17,17 @@ interface NavItem {
   end?: boolean;
 }
 
-const ADMIN_NAV: NavItem[] = [
+const SCHOOL_ADMIN_NAV: NavItem[] = [
   { to: "/school-admin", icon: "home", label: "navDashboard", end: true },
   { to: "/school-admin/students", icon: "users", label: "navStudents" },
   { to: "/school-admin/fees", icon: "cash", label: "navFees" },
   { to: "/school-admin/exams", icon: "exam", label: "navExams" },
   { to: "/school-admin/staff", icon: "staff", label: "navStaff" },
   { to: "/school-admin/settings", icon: "settings", label: "navSettings" },
+];
+
+const SAAS_ADMIN_NAV: NavItem[] = [
+  { to: "/saas-admin", icon: "home", label: "navDashboard", end: true },
 ];
 
 const TEACHER_NAV: NavItem[] = [
@@ -44,10 +48,7 @@ const STAFF_ADMIN_NAV: NavItem[] = [
 ];
 
 const PRINT_STAFF_NAV: NavItem[] = [
-  { to: "/print", icon: "home", label: "navMarks", end: true },
-  { to: "/print/attendance", icon: "clipboard", label: "navAttendance" },
-  { to: "/print/marks", icon: "edit", label: "navMarks" },
-  { to: "/print/students", icon: "users", label: "navMyStudents" },
+  { to: "/print", icon: "home", label: "navDashboard", end: true },
 ];
 
 export function Shell({ children }: { children: ReactNode }) {
@@ -61,13 +62,13 @@ export function Shell({ children }: { children: ReactNode }) {
   const [more, setMore] = useState(false);
 
   const NAV_BY_ROLE = {
-    "saas-admin": ADMIN_NAV,
-    "school-admin": ADMIN_NAV,
+    "saas-admin": SAAS_ADMIN_NAV,
+    "school-admin": SCHOOL_ADMIN_NAV,
     "staff-admin": STAFF_ADMIN_NAV,
     teacher: TEACHER_NAV,
     "finance-officer": FINANCE_NAV,
     "print-only-staff": PRINT_STAFF_NAV,
-  } satisfies Record<Role, typeof ADMIN_NAV>;
+  } satisfies Record<Role, typeof SCHOOL_ADMIN_NAV>;
 
   const nav = role ? NAV_BY_ROLE[role] : null;
 

@@ -27,6 +27,10 @@ import MyClasses from "@/pages/teacher/MyClasses";
 import Attendance from "@/pages/teacher/Attendance";
 import MarkEntry from "@/pages/teacher/MarkEntry";
 import MyStudents from "@/pages/teacher/MyStudents";
+// print-only staff pages
+import PrintDashboard from "@/pages/print_staff/Dashboard";
+// saas-admin pages
+import SaasAdminDashboard from "@/pages/saas_admin/Dashboard";
 
 function Guard({ need, children }: { need: Role; children: ReactNode }) {
   const role = useSession((s) => s.role);
@@ -84,8 +88,9 @@ export default function App() {
         <Route path="/staff-admin/staff" element={<Guard need="staff-admin"><Staff/></Guard>} />
         <Route path="/staff-admin/staff/:id" element={<Guard need="staff-admin"><StaffProfile /></Guard>} />
 
-        {/* <Route path="/saas-admin" element={<Guard need="saas-admin"><AdminDashboard /></Guard>} /> */}
+        <Route path="/saas-admin" element={<Guard need="saas-admin"><SaasAdminDashboard /></Guard>} />
 
+        <Route path="/print" element={<Guard need="print-only-staff"><PrintDashboard /></Guard>} />
         {/* <Route path="/reports/exams" element={<Guard need="print-only-staff"><Exams /></Guard>} /> */}
 
         <Route path="*" element={<Navigate to="/" replace />} />

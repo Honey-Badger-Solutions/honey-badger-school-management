@@ -26,12 +26,12 @@ export default function Login() {
     description: string;
     icon: "badge" | "book" | "users" | "cash" | "printer";
   }[] = [
-    // {
-    //   role: "saas-admin",
-    //   label: t("roleSaasAdmin"),
-    //   description: t("roleSaasAdminSub"),
-    //   icon: "badge",
-    // },
+    {
+      role: "saas-admin",
+      label: t("roleSaasAdmin"),
+      description: t("roleSaasAdminSub"),
+      icon: "badge",
+    },
     {
       role: "school-admin",
       label: t("roleSchoolAdmin"),
@@ -56,12 +56,12 @@ export default function Login() {
       description: t("roleFinanceSub"),
       icon: "cash",
     },
-    // {
-    //   role: "print-only-staff",
-    //   label: t("rolePrintStaff"),
-    //   description: t("rolePrintStaffSub"),
-    //   icon: "printer",
-    // },
+    {
+      role: "print-only-staff",
+      label: t("rolePrintStaff"),
+      description: t("rolePrintStaffSub"),
+      icon: "printer",
+    },
   ];
 
   const ROLE_HOME: Record<Role, string> = {
@@ -70,7 +70,7 @@ export default function Login() {
     "staff-admin": "/staff-admin",
     "teacher": "/teacher",
     "finance-officer": "/finance",
-    "print-only-staff": "/reports",
+    "print-only-staff": "/print",
   };
 
   const go = () => {
