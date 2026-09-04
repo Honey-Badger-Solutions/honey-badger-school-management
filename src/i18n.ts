@@ -417,6 +417,66 @@ const en = {
   emptyStateSub: "Check back later or try a different filter.",
   emptyStateMaintainance: "This feature is under maintenance, try again later.",
 
+  // marketing / landing page
+  mktNavFeatures: "Features",
+  mktNavRoles: "Who it's for",
+  mktCtaLogin: "Log in",
+  mktCtaStart: "Get started",
+  mktHeroEyebrow: "For Ethiopian schools",
+  mktHeroTitle: "Run your whole school from one place",
+  mktHeroSub:
+    "Attendance, fees, exams and staff — HoneyBadger brings everything a school office does every day into one simple, offline-friendly system.",
+  mktHeroNote: "No payment needed to start the conversation.",
+  mktHeroStatStudents: "Students tracked",
+  mktHeroStatAttendance: "Attendance today",
+  mktHeroStatFees: "Fees collected",
+  mktFeaturesTitle: "Everything your office already does — organized",
+  mktFeaturesSub:
+    "Built for how Ethiopian schools register, teach, collect fees and report — not adapted from someone else's system.",
+  mktFeatureStudentsTitle: "Students & classes",
+  mktFeatureStudentsSub:
+    "Register students, organize grades and sections, and promote a whole class at year-end in a few taps.",
+  mktFeatureFeesTitle: "Fees & payments",
+  mktFeatureFeesSub:
+    "Track fee structures, record payments, print receipts, and see who still owes at a glance.",
+  mktFeatureExamsTitle: "Exams & report cards",
+  mktFeatureExamsSub:
+    "Enter marks by class, calculate averages and ranks, and print report cards ready to hand out.",
+  mktFeatureStaffTitle: "Staff & assignments",
+  mktFeatureStaffSub:
+    "Keep teacher records, assign classes and subjects, and manage homeroom responsibilities.",
+  mktFeatureAttendanceTitle: "Daily attendance",
+  mktFeatureAttendanceSub:
+    "Mark a class present in seconds and see which sections haven't taken attendance yet.",
+  mktFeaturePrintTitle: "Built to print",
+  mktFeaturePrintSub:
+    "Rosters, receipts, defaulter lists and report cards are formatted to print cleanly, no extra software.",
+  mktRolesTitle: "One system, every role",
+  mktRolesSub:
+    "Each person signs in to the view built for their job — nothing extra to configure.",
+  mktCtaBannerTitle: "Ready to bring your school onto HoneyBadger?",
+  mktCtaBannerSub: "Tell us about your school and we'll help you get set up.",
+  mktCtaBannerStart: "Start now",
+  mktCtaBannerLogin: "I already have an account",
+  mktFooterTag: "School management, made simple.",
+  mktFooterRights: "All rights reserved.",
+
+  // get-started page
+  mktGetStartedEyebrow: "Get started",
+  mktGetStartedTitle: "Tell us about your school",
+  mktGetStartedLead:
+    "Share a few details and we'll reach out to help set up HoneyBadger for your school.",
+  mktOwnerName: "Your full name",
+  mktStudentCount: "Roughly how many students?",
+  mktMessage: "Anything else we should know?",
+  mktSubmitRequest: "Submit request",
+  mktSubmitting: "Sending…",
+  mktSuccessTitle: "Request received",
+  mktSuccessSub:
+    "Thanks, {name} — we've noted your request for {school}. Our team will be in touch soon to help you get set up.",
+  mktBackHome: "Back to home",
+  mktGoLogin: "Log in instead",
+
 };
 
 export type Dict = typeof en;

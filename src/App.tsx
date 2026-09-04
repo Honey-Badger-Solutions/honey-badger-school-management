@@ -6,6 +6,8 @@ import { Shell } from "@/components/Shell";
 import type { Role } from "@/types";
 
 import Login from "@/pages/Login";
+import Landing from "@/pages/marketing/Landing";
+import GetStarted from "@/pages/marketing/GetStarted";
 // admin pages
 import SchoolAdminDashboard from "@/pages/admin/Dashboard";
 import SchoolAdminStudents from "@/pages/admin/Students";
@@ -58,7 +60,7 @@ function Home() {
   const role = useSession((s) => s.role);
   if (role === "school-admin") return <Navigate to="/school-admin" replace />;
   if (role === "teacher") return <Navigate to="/teacher" replace />;
-  return <Login />;
+  return <Landing />;
 }
 
 export default function App() {
@@ -66,6 +68,8 @@ export default function App() {
     <HashRouter>
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/get-started" element={<GetStarted />} />
 
         <Route path="/school-admin" element={<Guard need="school-admin"><SchoolAdminDashboard /></Guard>} />
         <Route path="/school-admin/students" element={<Guard need="school-admin"><SchoolAdminStudents /></Guard>} />

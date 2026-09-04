@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Icon } from "../components/Icon";
 import { FullLogo } from "../components/Logo";
 import { personName } from "../components/bits";
@@ -92,7 +92,9 @@ export default function Login() {
     <div className="min-h-screen grid place-items-center p-6">
       <div className="w-full max-w-[420px]">
         <div className="flex items-center justify-between mb-5">
-          <FullLogo height={84} />
+          <Link to="/">
+            <FullLogo height={84} />
+          </Link>
           <div className="seg" role="group" aria-label={t("language")}>
             <button
               className={lang === "en" ? "on" : ""}
