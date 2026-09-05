@@ -1,10 +1,19 @@
-import type { Db, SchoolSettings } from '../types'
+import type { Db, School, SchoolSettings } from '../types'
 import { getDb, update, delay, resetDb } from './db'
 import { newId } from '../lib/id'
+import { assertPermission } from './users'
 
 export async function saveSettings(patch: Partial<SchoolSettings>): Promise<void> {
+  assertPermission('school.manage_settings', 'changing school settings')
   await delay()
   update((d) => { Object.assign(d.settings, patch) })
+}
+
+/** The school record itself — name, phone, prefixes. Mirrors `public.schools`. */
+export async function saveSchool(patch: Partial<Omit<School, 'id'>>): Promise<void> {
+  assertPermission('school.update', 'editing the school')
+  await delay()
+  update((d) => { Object.assign(d.school, patch) })
 }
 
 /* ------------------------------------------------------------------ *

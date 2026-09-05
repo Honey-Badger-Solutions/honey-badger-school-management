@@ -36,23 +36,21 @@ import SaasAdminDashboard from "@/pages/saas_admin/Dashboard";
 
 function Guard({ need, children }: { need: Role; children: ReactNode }) {
   const role = useSession((s) => s.role);
-  const teacherId = useSession((s) => s.teacherId);
+  const userId = useSession((s) => s.userId);
   const logout = useSession((s) => s.logout);
   const db = useDb();
 
-  // A teacher session whose id no longer resolves (record removed, demo data
-  // reset) must end, not silently borrow another teacher's identity — a mark
-  // saved in that state would be attributed to the wrong person.
-  const staleTeacher =
-    need === "teacher" &&
-    role === "teacher" &&
-    !db.teachers.some((x) => x.id === teacherId);
+  // A session whose user no longer resolves (demo data reset, account removed)
+  // must end rather than silently borrow another identity — anything written in
+  // that state would be attributed to the wrong person. Checked on the USER
+  // now, so it covers every role and not just teachers.
+  const stale = userId !== null && !db.users.some((u) => u.id === userId);
 
   useEffect(() => {
-    if (staleTeacher) logout();
-  }, [staleTeacher, logout]);
+    if (stale) logout();
+  }, [stale, logout]);
 
-  if (role !== need || staleTeacher) return <Navigate to="/" replace />;
+  if (role !== need || stale) return <Navigate to="/" replace />;
   return <Shell>{children}</Shell>;
 }
 

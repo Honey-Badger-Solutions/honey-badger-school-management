@@ -40,8 +40,8 @@ export function PrintHead({ doc }: { doc: string }) {
       <div className="flex items-center gap-3 pb-3">
         <FullLogo height={54} />
         <div className="flex-1 leading-tight">
-          <div className="font-display font-bold text-[19px] text-ink">{s.schoolName}</div>
-          <div className="text-[12px] text-soft">{s.schoolNameAm} · {s.city} · {s.phone}</div>
+          <div className="font-display font-bold text-[19px] text-ink">{db.school.name}</div>
+          <div className="text-[12px] text-soft">{db.school.nameAm} · {s.city} · {db.school.phone}</div>
         </div>
         <div className="text-right leading-tight">
           <div className="font-display font-bold text-[13px] uppercase tracking-[1px] text-gold">{doc}</div>
@@ -58,7 +58,7 @@ export function PrintFoot({ page, of }: { page?: number; of?: number }) {
   const db = useDb()
   return (
     <div className="mt-5 pt-2 border-t border-line text-[10.5px] text-dim flex justify-between">
-      <span>{db.settings.schoolName} — {db.settings.academicYear}</span>
+      <span>{db.school.name} — {db.settings.academicYear}</span>
       {page && of ? <span>Page {page} of {of}</span> : null}
       <span>Printed with HoneyBadger School</span>
     </div>

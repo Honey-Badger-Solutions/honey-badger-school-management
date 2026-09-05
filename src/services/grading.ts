@@ -1,8 +1,8 @@
 import type { Assessment, AssessmentTypeId, Db, GradingWeights } from '../types'
 import { ASSESSMENT_TYPE_IDS } from '../types'
 import { getDb, update, delay, takeSeq } from './db'
-import { useSession } from '../store/session'
 import { newId } from '../lib/id'
+import { actingUserId } from './users'
 
 /* ------------------------------------------------------------------ *
  * Grading weights — how much each kind of work counts
@@ -53,7 +53,7 @@ export async function addAssessment(input: {
   date: string
 }): Promise<Assessment> {
   await delay()
-  const createdBy = useSession.getState().teacherId
+  const createdByUserId = actingUserId()
   const assessment: Assessment = {
     id: newId(),
     sectionId: input.sectionId,
@@ -62,7 +62,7 @@ export async function addAssessment(input: {
     name: input.name.trim(),
     maxMark: input.maxMark,
     date: input.date,
-    createdBy,
+    createdByUserId,
   }
   update((d) => { d.assessments.push(assessment) })
   return assessment
@@ -84,7 +84,7 @@ export async function deleteAssessment(id: string): Promise<void> {
  * a percentage happens in derive.ts, so changing a maximum never rewrites data.
  */
 export async function saveScore(assessmentId: string, studentId: string, score: number | null): Promise<void> {
-  const enteredBy = useSession.getState().teacherId
+  const enteredByUserId = actingUserId()
   update((d) => {
     const key = `${assessmentId}|${studentId}`
     if (score === null) {
@@ -93,11 +93,14 @@ export async function saveScore(assessmentId: string, studentId: string, score: 
       return
     }
     d.assessmentScores[key] = score
-    const teacher = enteredBy ? d.teachers.find((x) => x.id === enteredBy) : undefined
+    // teacherId stays null for an office edit — the identity is already
+    // carried by enteredByUserId, so this only records whether the score came
+    // from the person who teaches the class.
+    const teacher = d.teachers.find((x) => x.userId === enteredByUserId)
     d.markAudit[key] = {
       serverSeq: takeSeq(d),
+      enteredByUserId,
       teacherId: teacher?.id ?? null,
-      actor: teacher ? `${teacher.firstName} ${teacher.fatherName}` : d.settings.currentUser,
       at: new Date().toISOString(),
     }
   })

@@ -5,6 +5,7 @@ import { Avatar, personName } from '../../components/bits'
 import { Modal } from '../../components/Modal'
 import { toast } from '../../components/Toast'
 import { useDb } from '../../services/db'
+import { userName } from '../../services/users'
 import { auditFor, departureImpact, homeroomHolder, homeroomOf, setAssignments, setHomeroom, setTeacherStatus, updateTeacher, visibleTeacher } from '../../services/staff'
 import { sectionLabel } from '../../lib/derive'
 import { fmtDate, fmtDateTime, todayISO } from '../../lib/dates'
@@ -388,7 +389,7 @@ function AuditCard({ teacherId }: { teacherId: string }) {
               {e.before && !e.after && readable(e.action, e.before)}
               {!e.before && e.after && readable(e.action, e.after)}
             </p>
-            <p className="text-dim text-[11.5px]">{t('auBy')} {e.actor}</p>
+            <p className="text-dim text-[11.5px]">{t('auBy')} {userName(db, e.actorUserId)}</p>
           </div>
         ))}
       </div>

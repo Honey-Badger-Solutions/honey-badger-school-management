@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Icon } from "@/components/Icon";
 import { EmptyState, PageTitle } from "@/components/bits";
 import { useDb } from "@/services/db";
+import { currentUser } from "@/services/users";
 import { fmtDate, todayISO } from "@/lib/dates";
 import { useT } from "@/store/session";
 import {
@@ -25,7 +26,7 @@ export default function StaffDashboard() {
   return (
     <>
       <PageTitle
-        title={`${t("goodMorning")}, ${db.settings.currentUser.split(" ")[0]}`}
+        title={`${t("goodMorning")}, ${currentUser(db)?.firstName ?? ""}`}
       >
         <span className="pill-dim">
           <Icon name="calendar" size={13} />

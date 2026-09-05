@@ -5,9 +5,21 @@ import { FullLogo } from "../components/Logo";
 import { personName } from "../components/bits";
 import { useDb } from "../services/db";
 import { assignableTeachers } from "../services/staff";
+import { userById, usersByRole } from "../services/users";
 import { useSession, useT } from "../store/session";
-import type { Role } from "../types";
+import type { Role, User } from "../types";
 
+/**
+ * Demo sign-in.
+ *
+ * Picking a role here resolves to a specific demo USER — the session stores
+ * that person's id, not the role they picked. Every role has exactly one demo
+ * account except teacher, where the picker chooses among the seeded staff.
+ *
+ * This is the prototype's stand-in for Supabase Auth. Replacing it means
+ * swapping this screen for a real sign-in and setting the same session fields
+ * from the authenticated user; nothing downstream knows the difference.
+ */
 export default function Login() {
   const t = useT();
   const db = useDb();
@@ -19,6 +31,11 @@ export default function Login() {
   // departed staff can no longer sign in
   const signInList = assignableTeachers(db);
   const [teacherId, setTeacherId] = useState(signInList[0]?.id ?? "");
+
+  const userForRole = (r: Role): User | undefined =>
+    r === "teacher" ? userById(db, teacherId) : usersByRole(db, r)[0];
+
+  const signInUser = role ? userForRole(role) : undefined;
 
   const roleOptions: {
     role: Role;
@@ -74,9 +91,15 @@ export default function Login() {
   };
 
   const go = () => {
-    if (!role) return;
+    if (!role || !signInUser) return;
 
-    login(role, role === "teacher" ? teacherId : undefined);
+    login({
+      userId: signInUser.id,
+      schoolId: signInUser.schoolId,
+      role: signInUser.role,
+      // a teacher's staff id is their user id — the same row
+      teacherId: signInUser.role === "teacher" ? signInUser.id : null,
+    });
 
     navigate(ROLE_HOME[role]);
   };
@@ -112,13 +135,17 @@ export default function Login() {
         </div>
         <h1 className="text-[24px] font-bold mb-1">{t("appName")}</h1>
         <p className="text-soft text-[13.5px] mb-6">
-          {t("tagline")} — {db.settings.schoolName}
+          {t("tagline")} — {db.school.name}
         </p>
 
         <p className="sec-h !mt-0">{t("chooseRole")}</p>
         <div className="flex flex-col gap-2.5 mb-4">
           {roleOptions.map((option) => {
             const selected = role === option.role;
+            // Name the person behind the role, so it is visible that signing in
+            // picks an identity. Teachers are chosen in the picker below.
+            const demoUser =
+              option.role === "teacher" ? undefined : usersByRole(db, option.role)[0];
 
             return (
               <button
@@ -137,6 +164,7 @@ export default function Login() {
                   </b>
 
                   <small className="text-dim text-[12px]">
+                    {demoUser ? `${personName(demoUser)} · ` : ""}
                     {option.description}
                   </small>
                 </span>
@@ -168,9 +196,9 @@ export default function Login() {
 
         <button
           className="btn-gold w-full"
-          disabled={!role}
+          disabled={!signInUser}
           onClick={go}
-          style={{ opacity: role ? 1 : 0.5 }}
+          style={{ opacity: signInUser ? 1 : 0.5 }}
         >
           {t("continueAs")}
           <Icon name="chevR" size={17} />

@@ -4,7 +4,7 @@ import { PageTitle } from '../../components/bits'
 import { Modal } from '../../components/Modal'
 import { toast } from '../../components/Toast'
 import { useDb } from '../../services/db'
-import { addGrade, addSection, resetDemoData, saveSettings, suggestNextClassName, suggestNextGrade } from '../../services/settings'
+import { addGrade, addSection, resetDemoData, saveSchool, saveSettings, suggestNextClassName, suggestNextGrade } from '../../services/settings'
 import { saveGrading, weightsProblem, weightsTotal } from '../../services/grading'
 import { rosterOf, sectionLabel } from '../../lib/derive'
 import { useSession, useT } from '../../store/session'
@@ -28,12 +28,23 @@ export default function Settings() {
   const db = useDb()
   const lang = useSession((s) => s.lang)
   const setLang = useSession((s) => s.setLang)
-  const [form, setForm] = useState({ ...db.settings })
+  // The school's own fields and the year/term settings are edited together but
+  // stored apart — `school` mirrors a table, `settings` holds what the schema
+  // models as academic_years/terms and has no column for.
+  const [form, setForm] = useState({
+    name: db.school.name,
+    nameAm: db.school.nameAm,
+    phone: db.school.phone,
+    city: db.settings.city,
+    academicYear: db.settings.academicYear,
+    term: db.settings.term,
+  })
   const [busy, setBusy] = useState(false)
 
   const save = async () => {
     setBusy(true)
-    await saveSettings(form)
+    await saveSchool({ name: form.name, nameAm: form.nameAm, phone: form.phone })
+    await saveSettings({ city: form.city, academicYear: form.academicYear, term: form.term })
     setBusy(false)
     toast(t('settingsSaved'))
   }
@@ -55,11 +66,11 @@ export default function Settings() {
           <h2 className="font-display font-bold text-[15px] mb-4">{t('schoolInfo')}</h2>
           <div className="field">
             <label htmlFor="st-name">{t('schoolName')}</label>
-            <input id="st-name" value={form.schoolName} onChange={(e) => set('schoolName', e.target.value)} />
+            <input id="st-name" value={form.name} onChange={(e) => set('name', e.target.value)} />
           </div>
           <div className="field">
             <label htmlFor="st-nameAm">{t('schoolNameAm')}</label>
-            <input id="st-nameAm" value={form.schoolNameAm} onChange={(e) => set('schoolNameAm', e.target.value)} />
+            <input id="st-nameAm" value={form.nameAm} onChange={(e) => set('nameAm', e.target.value)} />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 sm:gap-x-3">
             <div className="field">
@@ -80,10 +91,6 @@ export default function Settings() {
               <label htmlFor="st-term">{t('term')}</label>
               <input id="st-term" value={form.term} onChange={(e) => set('term', e.target.value)} />
             </div>
-          </div>
-          <div className="field">
-            <label htmlFor="st-user">{t('yourName')}</label>
-            <input id="st-user" value={form.currentUser} onChange={(e) => set('currentUser', e.target.value)} />
           </div>
           <button className="btn-gold w-full" onClick={save} disabled={busy}>{busy ? t('saving') : t('save')}</button>
         </div>

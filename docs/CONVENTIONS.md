@@ -27,20 +27,46 @@ services   ──mutate─▶ update(draft)     (commits snapshot → localStora
 
 ### Authorship trails
 Records that could be disputed carry who produced them and when, written by the
-service, never by a component:
-- `db.markAudit[examId|subjectId|studentId]` → `{ teacherId, actor, at }` for
-  every score (parallel to `db.marks` so ranking and report cards keep reading
-  plain numbers). Kept in step by `saveMark`: re-entering re-attributes,
+service, never by a component. **Every one of them stores a user id, never a
+name** — see "Identity" below:
+- `db.markAudit[examId|subjectId|studentId]` → `{ enteredByUserId, teacherId,
+  at }` for every score (parallel to `db.marks` so ranking and report cards keep
+  reading plain numbers). Kept in step by `saveMark`: re-entering re-attributes,
   clearing deletes it.
-- `AttendanceDay.markedBy` → teacher who took that register.
-- `db.auditLog` → every staff change (actor, before, after, timestamp).
+- `AttendanceRecord.markedByUserId` → the user who marked that student.
+- `Payment.receivedByUserId` → the cashier who took the money.
+- `Assessment.createdByUserId` → who set the work.
+- `db.auditLog` → every staff change (`actorUserId`, subject, before, after).
 
-**Never leave a hole in the trail.** An administrator editing a mark is
-recorded as that administrator (`teacherId: null`, `actor` = the admin's name)
-— *not* dropped. A missing attribution is worse than a correctly identified
-admin edit, because a dispute turns on exactly that case. `actor` is the name
-captured at write time, since admins have no staff record; prefer a live
-lookup via `teacherId` when it is set, so teacher renames are picked up.
+**Never leave a hole in the trail.** An administrator editing a mark is recorded
+as that administrator — *not* dropped. A missing attribution is worse than a
+correctly identified admin edit, because a dispute turns on exactly that case.
+On `markAudit`, `teacherId` stays null for an office edit: the identity is
+already carried by `enteredByUserId`, so that field only records whether the
+mark came from the person who teaches the class.
+
+### Identity
+Everyone who can sign in is a `User` (`db.users`), mirroring `public.users` in
+Supabase — whose `id` is also the `auth.users` id. A teacher's `Teacher` record
+and their `User` share **one uuid**, because server-side they are one row.
+
+- **Attribute writes to `actingUserId()`** (`services/users.ts`), never to a
+  name and never to a role. A name captured at write time is not an identity:
+  rename the person and the history silently re-attributes itself.
+- **Resolve names at render** with `userName(db, id)`.
+- Every record carries `schoolId`; it is the column RLS filters on server-side.
+
+### Authorization
+Permissions live in `src/config/permissions.ts` — named capabilities mapped to
+roles, using the vocabulary in `ROLES_AND_RBAC.md`. Ask what someone may *do*,
+never what they *are*:
+- components: `const can = useCan()` → `can('fees.record_payment')`
+- services: `assertPermission('staff.update', 'editing a teacher')`
+
+Do not write `role === 'school-admin'` in a screen. Route matching and the
+sign-in picker are the only places a role name is legitimately compared.
+None of this is security — it decides what the UI offers. The same map has to
+exist as RLS policies and server-side checks before it is enforceable.
 
 Seeded history must stay internally consistent: mark timestamps sit inside a
 plausible marking window and, for a teacher who has since left, always *before*
@@ -54,8 +80,8 @@ someone leaves.
 ## State
 - **Domain data**: the single `useDb()` store. No per-screen copies of domain
   data — derive on render.
-- **Session** (role, teacherId, language): `useSession` zustand store,
-  persisted to `localStorage` as `hbs_session_v1`.
+- **Session** (userId, schoolId, role, teacherId, language): `useSession`
+  zustand store, persisted to `localStorage` as `hbs_session_v2`.
 - **Screen-local UI state** (open modal, filter values, form drafts):
   `useState` inside the component. Filters that should survive navigation
   (active tab, selected section, "open register modal") go in the URL via

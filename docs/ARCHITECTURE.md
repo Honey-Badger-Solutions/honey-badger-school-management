@@ -59,10 +59,22 @@ recomputes these locally.
 surfaces state through `<SaveChip>`: `idle → saving → local → synced`. Offline
 shows "Saved on this phone". Nothing blocks on a network round trip.
 
-**Authorship trails.** Anything disputable records who did it:
-`db.markAudit[key]` (who entered a score and when), `AttendanceDay.markedBy`,
-`db.auditLog` (every staff change with before/after). Staff are never deleted,
-so those references always resolve to a name.
+**Identity.** Everyone who signs in is a `User` in `db.users`, mirroring
+`public.users` (whose id is the `auth.users` id). A `Teacher` and their `User`
+share one uuid — server-side they are one row. The session stores `userId` and
+`schoolId`; role is an attribute of the user, not the identity.
+
+**Authorship trails.** Anything disputable records *which user* did it:
+`db.markAudit[key]` (`enteredByUserId`), `AttendanceRecord.markedByUserId`,
+`Payment.receivedByUserId`, `db.auditLog` (`actorUserId`, with before/after).
+Users are never deleted, so those ids always resolve — and because a name is
+never stored alongside them, renaming somebody re-labels their history instead
+of leaving it asserting a name they no longer have.
+
+**Authorization.** `src/config/permissions.ts` maps named capabilities to the
+six roles; `useCan()` in components, `assertPermission()` in services. Screens
+do not compare role names. This is UI gating, not security — the same rules
+must be enforced by RLS server-side.
 
 **Printing.** Documents render in a portal under `<body>`; on print the app
 root is `display:none`. Lists that can span pages use `<PaginatedReport>`

@@ -1,6 +1,6 @@
 import type { AttendanceMark, Db } from '../types'
 import { update, delay, takeSeq } from './db'
-import { useSession } from '../store/session'
+import { actingUserId } from './users'
 import { todayISO } from '../lib/dates'
 import { attKey, regKey, recordsForDay } from '../lib/derive'
 
@@ -22,9 +22,9 @@ import { attKey, regKey, recordsForDay } from '../lib/derive'
  * (mock) network round-trip.
  */
 export async function saveMarks(sectionId: string, date: string, changes: Record<string, AttendanceMark>): Promise<void> {
-  // stamped with whoever marked THIS student, so history still names them
-  // after they leave the school
-  const markedBy = useSession.getState().teacherId
+  // stamped with whoever marked THIS student, so history still resolves to
+  // them after they leave the school
+  const markedByUserId = actingUserId()
   const touched: string[] = []
 
   update((d) => {
@@ -36,7 +36,7 @@ export async function saveMarks(sectionId: string, date: string, changes: Record
         sectionId,
         studentId,
         mark: changes[studentId],
-        markedBy: markedBy ?? d.attendance[key]?.markedBy ?? null,
+        markedByUserId: markedByUserId ?? d.attendance[key]?.markedByUserId ?? null,
         clientRecordedAt: new Date().toISOString(), // display only
         serverSeq: takeSeq(d),
         sync: 'local',
@@ -80,14 +80,14 @@ export function registerState(db: Db, sectionId: string, date: string): Register
   return reg.submittedAt ? 'submitted' : 'in_progress'
 }
 
-/** Who took this register — the teacher on most of its records. Records can
+/** Who took this register — the user id on most of its records. Records can
  *  legitimately differ (a substitute marking the students the homeroom teacher
  *  missed), so this is the majority, not a claim about every row. */
 export function registerMarkedBy(db: Db, sectionId: string, date: string): string | null {
   const tally = new Map<string, number>()
   for (const rec of recordsForDay(db, sectionId, date)) {
-    if (!rec.markedBy) continue
-    tally.set(rec.markedBy, (tally.get(rec.markedBy) ?? 0) + 1)
+    if (!rec.markedByUserId) continue
+    tally.set(rec.markedByUserId, (tally.get(rec.markedByUserId) ?? 0) + 1)
   }
   let best: string | null = null
   let bestN = 0

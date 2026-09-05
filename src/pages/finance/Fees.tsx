@@ -6,6 +6,7 @@ import { Modal } from '../../components/Modal'
 import { toast } from '../../components/Toast'
 import { PaginatedReport, PrintArea, PrintFoot, PrintHead, printNow } from '../../components/Print'
 import { useDb } from '../../services/db'
+import { userName } from '../../services/users'
 import { balanceFor, defaulterRows, paidRows, recordPayment } from '../../services/fees'
 import { ReceiptsExhausted } from '../../services/receipts'
 import { sectionLabel } from '../../lib/derive'
@@ -226,7 +227,7 @@ function ReceiptModal({ payment, onClose }: { payment: Payment; onClose: () => v
           </div>
           <p className="text-[13px] mb-3">{t('receivedFrom')}: <b>{personName(student)}</b> ({sectionLabel(db, student.sectionId)})</p>
           <ReceiptBody payment={payment} />
-          <p className="text-[12px] mt-4">{t('receivedBy')}: {payment.receivedBy} — {t(payment.method)}</p>
+          <p className="text-[12px] mt-4">{t('receivedBy')}: {userName(db, payment.receivedByUserId)} — {t(payment.method)}</p>
           <p className="text-[12px] italic text-soft mt-1">{t('thankYou')}</p>
           <div className="border-t border-dashed border-line mt-4" />
           <PrintFoot />

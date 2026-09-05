@@ -16,7 +16,7 @@ const KEY = 'hbs_db_v1'
 
 /** Bump when the seed or Db shape changes: cached demo data is then rebuilt
  *  instead of leaving an old browser showing stale students and marks. */
-const SCHEMA_VERSION = 16
+const SCHEMA_VERSION = 17
 
 /** A freshly seeded database, stamped with the current schema version. */
 function fresh(): Db {

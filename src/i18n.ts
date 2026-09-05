@@ -378,7 +378,6 @@ const en = {
   resetConfirm: "Reset all demo data? Anything you changed will be lost.",
   resetDone: "Demo data has been reset",
   settingsSaved: "Settings saved",
-  yourName: "Your name (printed on receipts)",
 
   // teacher role
   myClassesTitle: "My classes",

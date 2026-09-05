@@ -1,8 +1,8 @@
-import type { AuditAction, AuditEntry, Db, Teacher } from '../types'
-import { update, delay, takeSeq } from './db'
-import { useSession } from '../store/session'
+import type { AuditAction, AuditEntry, Db, Teacher, User } from '../types'
+import { getDb, update, delay, takeSeq } from './db'
 import { sectionLabel } from '../lib/derive'
 import { newId } from '../lib/id'
+import { actingUserId, assertPermission, can } from './users'
 
 export interface TeacherInput {
   firstName: string
@@ -25,22 +25,17 @@ export interface TeacherInput {
  * When this moves server-side the same two checks become the API guard.
  * ------------------------------------------------------------------ */
 
-function actor(): { role: string | null; teacherId: string | null } {
-  const s = useSession.getState()
-  return { role: s.role, teacherId: s.teacherId }
-}
-
-/** True when the current user may read this teacher's phone/email. */
+/**
+ * True when the current user may read this teacher's phone/email.
+ *
+ * Two independent grounds: the `staff.view_contact` capability, or ownership —
+ * everyone may read their own details. Ownership is compared on user id, not on
+ * role, so it keeps working for any role that also holds a staff record.
+ */
 export function canSeeContact(teacherId: string): boolean {
-  const { role, teacherId: self } = actor()
-  return role === 'school-admin' || (role === 'teacher' && self === teacherId)
-}
-
-/** Only an admin may edit staff records at all. */
-function assertAdmin(action: string): void {
-  if (actor().role !== 'school-admin') {
-    throw new Error(`Not permitted: ${action} requires an administrator.`)
-  }
+  if (can('staff.view_contact')) return true
+  const self = actingUserId()
+  return self !== null && self === teacherId
 }
 
 const CONTACT_HIDDEN = ''
@@ -49,23 +44,21 @@ const CONTACT_HIDDEN = ''
  * Audit log — every staff change is recorded with actor + before/after
  * ------------------------------------------------------------------ */
 
-function actorName(d: Db): string {
-  const { role, teacherId } = actor()
-  if (role === 'teacher') {
-    const self = d.teachers.find((x) => x.id === teacherId)
-    return self ? `${self.firstName} ${self.fatherName}` : 'Teacher'
-  }
-  return d.settings.currentUser
-}
-
-/** Append an entry. Called inside an update() draft so it commits atomically. */
-function log(d: Db, teacherId: string, action: AuditAction, before: string | null, after: string | null): void {
+/**
+ * Append an entry. Called inside an update() draft so it commits atomically.
+ *
+ * Records the actor as a user id and nothing else. The display name is resolved
+ * when the log is rendered, so renaming somebody re-labels their past actions
+ * instead of leaving the log asserting a name they no longer have.
+ */
+function log(d: Db, subjectId: string, action: AuditAction, before: string | null, after: string | null): void {
   d.auditLog.unshift({
     serverSeq: takeSeq(d),
     id: newId(),
     at: new Date().toISOString(),
-    actor: actorName(d),
-    teacherId,
+    actorUserId: actingUserId(),
+    subjectTable: 'users',
+    subjectId,
     action,
     before,
     after,
@@ -87,7 +80,7 @@ function pairLabel(d: Db, sectionId: string, subjectId: string): string {
  */
 export function auditFor(db: Db, teacherId: string): AuditEntry[] {
   return db.auditLog
-    .filter((e) => e.teacherId === teacherId)
+    .filter((e) => e.subjectTable === 'users' && e.subjectId === teacherId)
     .sort((a, b) => b.serverSeq - a.serverSeq)
 }
 
@@ -109,32 +102,61 @@ export function visibleTeachers(db: Db): Teacher[] {
  * Writes — admin only
  * ------------------------------------------------------------------ */
 
+/**
+ * Add a teacher — and the account they sign in with.
+ *
+ * The two records are created together, sharing one id, because a staff member
+ * without a user cannot be attributed to anything they do. Server-side this is
+ * a single `users` row; the split exists only on this side.
+ */
 export async function addTeacher(input: TeacherInput): Promise<Teacher> {
-  assertAdmin('adding a teacher')
+  assertPermission('staff.create', 'adding a teacher')
   await delay()
+  const id = newId()
+  const schoolId = getDb().schoolId
+  const firstName = input.firstName.trim()
+  const fatherName = input.fatherName.trim()
+  const phone = input.phone.trim()
+  const email = input.email.trim()
+
   const teacher: Teacher = {
-    id: newId(),
-    firstName: input.firstName.trim(),
-    fatherName: input.fatherName.trim(),
+    id,
+    userId: id,
+    schoolId,
+    firstName,
+    fatherName,
     sex: input.sex,
     position: input.position,
     employmentType: input.employmentType,
     hireDate: input.hireDate,
-    phone: input.phone.trim(),
-    email: input.email.trim(),
+    phone,
+    email,
     status: 'active',
     departedOn: null,
     assignments: [],
   }
+  const user: User = {
+    id,
+    schoolId,
+    firstName,
+    fatherName,
+    sex: input.sex,
+    email,
+    phone,
+    role: 'teacher',
+    status: 'active',
+    createdAt: new Date().toISOString(),
+  }
   update((d) => {
     d.teachers.push(teacher)
-    log(d, teacher.id, 'created', null, `${teacher.firstName} ${teacher.fatherName}`)
+    d.users.push(user)
+    log(d, id, 'created', null, `${firstName} ${fatherName}`)
   })
   return teacher
 }
 
 export async function updateTeacher(id: string, patch: Partial<Teacher>): Promise<void> {
-  assertAdmin('editing a teacher')
+  assertPermission('staff.update', 'editing a teacher')
   await delay()
   update((d) => {
     const t = d.teachers.find((x) => x.id === id)
@@ -153,11 +175,21 @@ export async function updateTeacher(id: string, patch: Partial<Teacher>): Promis
       log(d, id, 'contact_changed', `${t.phone} · ${t.email}`, `${patch.phone ?? t.phone} · ${patch.email ?? t.email}`)
     }
     Object.assign(t, patch)
+    // One person, one row server-side: the fields the two records share must
+    // not be allowed to disagree.
+    const user = d.users.find((u) => u.id === t.userId)
+    if (user) {
+      user.firstName = t.firstName
+      user.fatherName = t.fatherName
+      user.sex = t.sex
+      user.phone = t.phone
+      user.email = t.email
+    }
   })
 }
 
 export async function setAssignments(id: string, assignments: Teacher['assignments']): Promise<void> {
-  assertAdmin('changing assignments')
+  assertPermission('staff.assign', 'changing assignments')
   await delay()
   update((d) => {
     const t = d.teachers.find((x) => x.id === id)
@@ -209,7 +241,7 @@ export function homeroomHolder(db: Db, sectionId: string): Teacher | undefined {
  * holder of the new one. Displaced holders are remembered on the section.
  */
 export async function setHomeroom(teacherId: string, sectionId: string | null): Promise<void> {
-  assertAdmin('changing homeroom')
+  assertPermission('academic.assign_teachers', 'changing homeroom')
   await delay()
   update((d) => {
     // release whatever this teacher held
@@ -262,7 +294,7 @@ export function teachersWithWorkload(db: Db): Teacher[] {
  * another. Applied as a single update so the two records never disagree.
  */
 export async function transferWorkload(fromId: string, toId: string, sel: TransferSelection): Promise<void> {
-  assertAdmin('transferring a workload')
+  assertPermission('staff.transfer_workload', 'transferring a workload')
   await delay()
   update((d) => {
     const from = d.teachers.find((x) => x.id === fromId)
@@ -315,13 +347,17 @@ export function departureImpact(db: Db, id: string): { assignments: number; home
 }
 
 export async function setTeacherStatus(id: string, status: Teacher['status'], onISO: string): Promise<void> {
-  assertAdmin('changing a teacher’s status')
+  assertPermission('staff.manage_status', 'changing a teacher’s status')
   await delay()
   update((d) => {
     const t = d.teachers.find((x) => x.id === id)
     if (!t) return
     log(d, id, 'status_changed', t.status, status)
     t.status = status
+    // The account follows the staff record — a departed teacher must stop
+    // being able to sign in, while their record and its history remain.
+    const user = d.users.find((u) => u.id === t.userId)
+    if (user) user.status = status
     if (status === 'departed') {
       t.departedOn = onISO
       for (const a of t.assignments) {

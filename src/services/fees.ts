@@ -1,12 +1,17 @@
 import type { Db, Payment, PaymentLine, Student } from '../types'
-import { getDb, update, delay, takeSeq } from './db'
+import { update, delay, takeSeq } from './db'
 import { todayISO } from '../lib/dates'
 import { allocateReceiptNo } from './receipts'
 import { newId } from '../lib/id'
+import { actingUserId, assertPermission } from './users'
 
 export async function recordPayment(studentId: string, lines: PaymentLine[], method: Payment['method']): Promise<Payment> {
+  assertPermission('fees.record_payment', 'recording a payment')
+  // `received_by` is NOT NULL in the schema, and a receipt that cannot say who
+  // took the money is not a receipt — so refuse rather than write a null.
+  const receivedByUserId = actingUserId()
+  if (!receivedByUserId) throw new Error('Not permitted: recording a payment requires a signed-in user.')
   await delay(250)
-  const db = getDb()
   const total = lines.reduce((a, l) => a + l.amount, 0)
   // Allocated from this device's leased block, so a second device collecting
   // fees at the same time cannot print the same number. Throws
@@ -22,7 +27,7 @@ export async function recordPayment(studentId: string, lines: PaymentLine[], met
     // timezone — not a UTC slice of a timestamp
     date: todayISO(),
     method,
-    receivedBy: db.settings.currentUser,
+    receivedByUserId,
     clientRecordedAt: new Date().toISOString(), // display only
     serverSeq: 0, // replaced inside update(), where commit order is known
   }

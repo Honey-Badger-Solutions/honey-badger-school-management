@@ -6,6 +6,7 @@ import { Avatar, OnlineDot, personName } from "@/components/bits";
 import { Modal } from "@/components/Modal";
 import { useSession, useT } from "@/store/session";
 import { useDb } from "@/services/db";
+import { currentUser } from "@/services/users";
 import { ToastHost } from "@/components/Toast";
 import type { TKey } from "@/i18n";
 import type { Role } from "@/types";
@@ -54,7 +55,6 @@ const PRINT_STAFF_NAV: NavItem[] = [
 export function Shell({ children }: { children: ReactNode }) {
   const t = useT();
   const role = useSession((s) => s.role);
-  const teacherId = useSession((s) => s.teacherId);
   const logout = useSession((s) => s.logout);
   const navigate = useNavigate();
   const location = useLocation();
@@ -81,13 +81,10 @@ export function Shell({ children }: { children: ReactNode }) {
     location.pathname.startsWith(item.to),
   );
 
-  const teacher = db.teachers.find((x) => x.id === teacherId);
-  const userName =
-    role === "teacher"
-      ? teacher
-        ? personName(teacher)
-        : ""
-      : db.settings.currentUser;
+  // One lookup for every role: the signed-in user's own record. A teacher's
+  // staff record and their account are the same row, so this needs no branch.
+  const user = currentUser(db);
+  const userName = user ? personName(user) : "";
 
   const ROLE_LABEL_KEY: Record<Role, Parameters<typeof t>[0]> = {
     "saas-admin": "roleSaasAdmin",

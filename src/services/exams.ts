@@ -1,6 +1,6 @@
 import { update, delay, takeSeq } from './db'
-import { useSession } from '../store/session'
 import { newId } from '../lib/id'
+import { actingUserId } from './users'
 
 /**
  * Optimistic single-cell save used by the keyboard mark-entry grid.
@@ -11,8 +11,7 @@ import { newId } from '../lib/id'
  * since a hole in the trail is worse than a correctly identified admin edit.
  */
 export async function saveMark(examId: string, subjectId: string, studentId: string, score: number | null): Promise<void> {
-  const session = useSession.getState()
-  const asTeacher = session.role === 'teacher' ? session.teacherId : null
+  const enteredByUserId = actingUserId()
   update((d) => {
     const key = `${examId}|${subjectId}|${studentId}`
     if (score === null) {
@@ -21,11 +20,13 @@ export async function saveMark(examId: string, subjectId: string, studentId: str
       return
     }
     d.marks[key] = score
-    const teacher = asTeacher ? d.teachers.find((x) => x.id === asTeacher) : undefined
+    // An office correction resolves through enteredByUserId like any other
+    // edit; teacherId is left null to mark that it did not come from the class.
+    const teacher = d.teachers.find((x) => x.userId === enteredByUserId)
     d.markAudit[key] = {
       serverSeq: takeSeq(d),
+      enteredByUserId,
       teacherId: teacher?.id ?? null,
-      actor: teacher ? `${teacher.firstName} ${teacher.fatherName}` : d.settings.currentUser,
       at: new Date().toISOString(),
     }
   })

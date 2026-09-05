@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { Icon } from '../../components/Icon'
 import { PageTitle, personName } from '../../components/bits'
 import { useDb } from '../../services/db'
+import { currentUser } from '../../services/users'
 import { allBalances } from '../../services/fees'
 import { getCompliance } from '../../services/compliance'
 import { registerState } from '../../services/attendance'
@@ -113,7 +114,7 @@ export default function Dashboard() {
 
   return (
     <>
-      <PageTitle title={`${t('goodMorning')}, ${db.settings.currentUser.split(' ')[0]}`}>
+      <PageTitle title={`${t('goodMorning')}, ${currentUser(db)?.firstName ?? ''}`}>
         <span className="pill-dim"><Icon name="calendar" size={13} />{fmtDate(today)}</span>
       </PageTitle>
 

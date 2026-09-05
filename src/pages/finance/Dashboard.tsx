@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Icon } from "../../components/Icon";
 import { PageTitle } from "../../components/bits";
 import { useDb } from "../../services/db";
+import { currentUser } from "../../services/users";
 import { allBalances } from "../../services/fees";
 import { fmtDate, todayISO } from "../../lib/dates";
 import { fmtETB } from "../../lib/money";
@@ -128,7 +129,7 @@ export default function FinanceDashboard() {
   return (
     <>
       <PageTitle
-        title={`${t("goodMorning")}, ${db.settings.currentUser.split(" ")[0]}`}
+        title={`${t("goodMorning")}, ${currentUser(db)?.firstName ?? ""}`}
       >
         <span className="pill-dim">
           <Icon name="calendar" size={13} />

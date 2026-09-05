@@ -1,6 +1,6 @@
 import type {
-  Assessment, AttendanceBook, AttendanceMark, Db, FeeItem, Grade, MarkBook, Payment, RegisterBook, Section,
-  MarkAudit, Student, Subject, Teacher,
+  Assessment, AttendanceBook, AttendanceMark, Db, FeeItem, Grade, MarkBook, Payment, RegisterBook, Role, School, Section,
+  MarkAudit, Student, Subject, Teacher, User,
 } from '../types'
 import { schoolDays, addDays, todayISO } from '../lib/dates'
 
@@ -37,7 +37,59 @@ const FATHERS = ['Alemu', 'Assefa', 'Bekele', 'Demissie', 'Fikadu', 'Gebre', 'Gi
 
 const YEAR = '2018 E.C.'
 
+/** Fixed so a reseed reproduces identical records — never `new Date()` here. */
+const CREATED_AT = '2025-09-01T00:00:00.000Z'
+
+/**
+ * The office: one demo user per role that does not teach.
+ *
+ * Contact details are literals rather than `int()` draws on purpose — the
+ * shared `rnd` stream is what reproduces the students, marks and attendance,
+ * and taking extra draws here would shift every one of them.
+ */
+const OFFICE_STAFF: { role: Role; firstName: string; fatherName: string; sex: 'M' | 'F'; phone: string }[] = [
+  { role: 'school-admin', firstName: 'Hiwot', fatherName: 'Assefa', sex: 'F', phone: '0911 204 118' },
+  { role: 'saas-admin', firstName: 'Selam', fatherName: 'Bekele', sex: 'F', phone: '0911 776 302' },
+  { role: 'staff-admin', firstName: 'Yonas', fatherName: 'Girma', sex: 'M', phone: '0912 448 907' },
+  { role: 'finance-officer', firstName: 'Meron', fatherName: 'Tadesse', sex: 'F', phone: '0913 559 271' },
+  { role: 'print-only-staff', firstName: 'Dawit', fatherName: 'Hailu', sex: 'M', phone: '0914 663 015' },
+]
+
+const emailFor = (firstName: string, fatherName: string) =>
+  `${firstName}.${fatherName}`.toLowerCase() + '@honeybadger.et'
+
 export function buildSeed(): Db {
+  const schoolId = seedId()
+  const school: School = {
+    id: schoolId,
+    name: 'Honey Badger Academy',
+    nameAm: 'ሐኒባጀር አካዳሚ',
+    phone: '011 554 2211',
+    timezone: 'Africa/Addis_Ababa',
+    studentNoPrefix: 'NO',
+    receiptPrefix: 'HB',
+    status: 'active',
+    createdAt: CREATED_AT,
+  }
+
+  /* ---- users: everyone who can sign in ----
+   * Teaching staff are appended alongside their Teacher record below, sharing
+   * one id, because in the database they are one row. */
+  const users: User[] = OFFICE_STAFF.map((o) => ({
+    id: seedId(),
+    schoolId,
+    firstName: o.firstName,
+    fatherName: o.fatherName,
+    sex: o.sex,
+    email: emailFor(o.firstName, o.fatherName),
+    phone: o.phone,
+    role: o.role,
+    status: 'active',
+    createdAt: CREATED_AT,
+  }))
+  /** The administrator the seeded receipts were issued by. */
+  const adminUser = users.find((u) => u.role === 'school-admin')!
+
   const grades: Grade[] = [5, 6, 7].map((lvl) => ({ id: seedId(), level: lvl, name: `Grade ${lvl}` }))
 
   const sections: Section[] = grades.flatMap((g) =>
@@ -99,19 +151,39 @@ export function buildSeed(): Db {
     const sex = i % 3 === 2 ? 'F' : rnd() < 0.5 ? 'F' : 'M'
     const firstName = sex === 'M' ? pick(MALE) : pick(FEMALE)
     const fatherName = pick(FATHERS)
+    const hireDate = `${2016 + int(0, 9)}-${String(int(1, 12)).padStart(2, '0')}-${String(int(1, 28)).padStart(2, '0')}`
+    const phone = `09${int(10, 94)} ${int(100, 999)} ${int(100, 999)}`
+    const email = emailFor(firstName, fatherName)
+    // One id for both records: the staff record and the sign-in account are the
+    // same person, and the same `users` row once this reaches the server.
+    const id = seedId()
     teachers.push({
-      id: seedId(),
+      id,
+      userId: id,
+      schoolId,
       firstName,
       fatherName,
       sex,
       position: POSITIONS[i],
       employmentType: EMPLOYMENT[i],
-      hireDate: `${2016 + int(0, 9)}-${String(int(1, 12)).padStart(2, '0')}-${String(int(1, 28)).padStart(2, '0')}`,
-      phone: `09${int(10, 94)} ${int(100, 999)} ${int(100, 999)}`,
-      email: `${firstName}.${fatherName}`.toLowerCase() + '@honeybadger.et',
+      hireDate,
+      phone,
+      email,
       status: 'active',
       departedOn: null,
       assignments: [],
+    })
+    users.push({
+      id,
+      schoolId,
+      firstName,
+      fatherName,
+      sex,
+      email,
+      phone,
+      role: 'teacher',
+      status: 'active',
+      createdAt: CREATED_AT,
     })
   }
   // Each of the 6 subjects gets 2 teachers; each teacher takes the subject in 3 sections.
@@ -138,6 +210,10 @@ export function buildSeed(): Db {
   departed.status = 'departed'
   departed.departedOn = addDays(todayISO(), -21)
   departed.assignments = []
+  // The account follows the staff record: a departed teacher keeps their user
+  // (history points at it) but is no longer active, so they cannot sign in.
+  const userById = new Map(users.map((u) => [u.id, u]))
+  for (const t of teachers) userById.get(t.userId)!.status = t.status
 
   /* ---- attendance: last 25 school days per section ----
    * One record per student per day. The RNG is drawn in exactly the same
@@ -145,13 +221,13 @@ export function buildSeed(): Db {
    * only the storage shape changed. */
   const attendance: AttendanceBook = {}
   const registers: RegisterBook = {}
-  const markRoster = (sectionId: string, date: string, markedBy: string | null) => {
+  const markRoster = (sectionId: string, date: string, markedByUserId: string | null) => {
     for (const st of students) {
       if (st.sectionId !== sectionId) continue
       const r = rnd()
       const mark: AttendanceMark = r < 0.93 ? 'P' : r < 0.97 ? 'A' : 'L'
       attendance[`${sectionId}|${date}|${st.id}`] = {
-        date, sectionId, studentId: st.id, mark, markedBy,
+        date, sectionId, studentId: st.id, mark, markedByUserId,
         // registers are taken in the morning of their own school day
         clientRecordedAt: `${date}T08:20:00.000Z`,
         serverSeq: 0, // assigned in timestamp order at the end
@@ -250,7 +326,6 @@ export function buildSeed(): Db {
     const sectionId = sectionOfStudent.get(studentId)
     const ownerId = sectionId ? taughtBy.get(`${sectionId}|${subjectId}`) : undefined
     if (!ownerId) continue
-    const owner = teacherById.get(ownerId)!
     const slot = slotOf(`${sectionId}|${subjectId}`, ownerId)
     // ~25s per student through the register; local time (no Z) so the demo
     // reads the same hour in any timezone
@@ -258,8 +333,9 @@ export function buildSeed(): Db {
     const two = (n: number) => String(n).padStart(2, '0')
     const at = `${slot.day}T${two(slot.hour)}:${two(slot.minute)}:00`
     markAudit[key] = {
+      // the teacher's staff id and user id are the same value
+      enteredByUserId: ownerId,
       teacherId: ownerId,
-      actor: `${owner.firstName} ${owner.fatherName}`,
       at: new Date(new Date(at).getTime() + sec * 1000).toISOString(),
       serverSeq: 0, // assigned in timestamp order at the end
     }
@@ -306,7 +382,7 @@ export function buildSeed(): Db {
         total: payNow,
         date: payDate,
         method: pick(['cash', 'cash', 'cash', 'telebirr', 'bank'] as const),
-        receivedBy: 'Hiwot Assefa',
+        receivedByUserId: adminUser.id,
         clientRecordedAt: `${payDate}T10:00:00.000Z`,
         serverSeq: 0, // set below, in business-date order
       })
@@ -333,6 +409,9 @@ export function buildSeed(): Db {
 
   return {
     version: 0, // stamped with SCHEMA_VERSION by services/db.ts
+    schoolId,
+    school,
+    users,
     grades,
     sections,
     subjects,
@@ -353,13 +432,9 @@ export function buildSeed(): Db {
     feeItems,
     payments,
     settings: {
-      schoolName: 'Honey Badger Academy',
-      schoolNameAm: 'ሐኒባጀር አካዳሚ',
       city: 'Addis Ababa',
-      phone: '011 554 2211',
       academicYear: '2018 E.C. (2025/26)',
       term: 'Term 1',
-      currentUser: 'Hiwot Assefa',
     },
     // The seeded history was issued before this school had a second device.
     // The next block starts clear of it, rounded up so block boundaries stay
