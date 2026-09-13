@@ -1,11 +1,11 @@
-import type { Db, Student } from '../types'
+import type { Db, Sex, Student } from '../types'
 import { getDb, update, delay } from './db'
 import { newId } from '../lib/id'
 
 export interface RegisterStudentInput {
   firstName: string
   fatherName: string
-  sex: 'M' | 'F'
+  sex: Sex
   sectionId: string
   guardianName: string
   guardianPhone: string

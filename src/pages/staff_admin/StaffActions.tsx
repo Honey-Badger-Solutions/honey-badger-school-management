@@ -20,7 +20,7 @@ import {
   STATUS_KEYS,
 } from "@/pages/staff_admin/StaffProfile";
 import { todayISO } from "@/lib/dates";
-import type { Teacher } from "@/types";
+import type { Sex, Teacher } from "@/types";
 
 /** Hand a whole workload from one teacher to another, item by item. */
 export function ReplaceTeacherModal({ onClose }: { onClose: () => void }) {
@@ -186,7 +186,7 @@ export function AddTeacherModal({ onClose }: { onClose: () => void }) {
   const [form, setForm] = useState({
     firstName: "",
     fatherName: "",
-    sex: "F" as "M" | "F",
+    sex: "female" as Sex,
     position: "teacher" as Teacher["position"],
     employmentType: "full_time" as Teacher["employmentType"],
     hireDate: todayISO(),

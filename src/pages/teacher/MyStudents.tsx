@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Avatar, PageTitle, personName } from '../../components/bits'
 import { rosterOf, sectionLabel, studentAttendance } from '../../lib/derive'
+import { sexKey } from '../../lib/enums'
 import { useT } from '../../store/session'
 import { useTeacher } from './useTeacher'
 import { NoClasses } from './NoClasses'
@@ -51,7 +52,7 @@ export default function MyStudents() {
               <Avatar name={s.firstName} size={36} />
               <span className="flex-1 min-w-0">
                 <b className="text-[13.5px] block truncate">{personName(s)}</b>
-                <small className="text-dim text-[11.5px]">{s.sex === 'M' ? t('male') : t('female')} · {t('guardian')}: {s.guardianName}</small>
+                <small className="text-dim text-[11.5px]">{t(sexKey(s.sex))} · {t('guardian')}: {s.guardianName}</small>
               </span>
               {rate !== null && (
                 <span className={rate >= 90 ? 'pill-good' : rate >= 75 ? 'pill-gold' : 'pill-warn'}>

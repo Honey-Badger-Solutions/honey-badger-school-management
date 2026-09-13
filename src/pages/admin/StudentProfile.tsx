@@ -5,6 +5,7 @@ import { Avatar, EmptyState, personName } from '../../components/bits'
 import { useDb } from '../../services/db'
 import { balanceFor } from '../../services/fees'
 import { sectionLabel, sectionReport, studentAttendance, studentExceptions } from '../../lib/derive'
+import { sexKey } from '../../lib/enums'
 import { fmtDate, fmtDateShort } from '../../lib/dates'
 import { fmtETB } from '../../lib/money'
 import { useT } from '../../store/session'
@@ -34,7 +35,7 @@ export default function StudentProfile() {
         <div className="flex-1 min-w-0">
           {/* no truncate: at 360px a two-line name beats "Abeba Ab…" */}
           <h1 className="text-[18px] sm:text-[20px] font-bold leading-tight">{personName(student)}</h1>
-          <p className="text-soft text-[12.5px] mt-0.5">{sectionLabel(db, student.sectionId)} · {student.sex === 'M' ? t('male') : t('female')}</p>
+          <p className="text-soft text-[12.5px] mt-0.5">{sectionLabel(db, student.sectionId)} · {t(sexKey(student.sex))}</p>
           <p className="text-dim text-[11.5px]">{t('joined')} {student.joinedYear}</p>
         </div>
         {rate !== null && (
@@ -81,7 +82,7 @@ function InfoTab({ id }: { id: string }) {
       <Row k={t('studentNo')} v={s.studentNo} />
       <Row k={t('schoolRefNo')} v={s.schoolRefNo || '—'} />
       <Row k={t('fullName')} v={personName(s)} />
-      <Row k={t('sex')} v={s.sex === 'M' ? t('male') : t('female')} />
+      <Row k={t('sex')} v={t(sexKey(s.sex))} />
       <Row k={t('section')} v={sectionLabel(db, s.sectionId)} />
       <Row k={t('guardianName')} v={s.guardianName} />
       <Row k={t('guardianPhone')} v={s.guardianPhone || '—'} />

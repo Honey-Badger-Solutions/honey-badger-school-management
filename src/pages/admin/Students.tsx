@@ -8,6 +8,8 @@ import { PaginatedReport, PrintArea, printNow } from '../../components/Print'
 import { useDb } from '../../services/db'
 import { registerStudent, promoteSection, suggestStudentNo, studentNoHolder } from '../../services/students'
 import { rosterOf, sectionLabel } from '../../lib/derive'
+import { sexKey, sexShort } from '../../lib/enums'
+import type { Sex } from '../../types'
 import { useT } from '../../store/session'
 
 export default function Students() {
@@ -104,7 +106,7 @@ export default function Students() {
               <Avatar name={s.firstName} />
               <span className="flex-1 min-w-0">
                 <b className="text-[14px] block truncate">{personName(s)}</b>
-                <small className="text-dim text-[12px] md:hidden">{sectionLabel(db, s.sectionId)} · {s.sex === 'M' ? t('male') : t('female')}</small>
+                <small className="text-dim text-[12px] md:hidden">{sectionLabel(db, s.sectionId)} · {t(sexKey(s.sex))}</small>
               </span>
               <span className="hidden md:block w-[92px] text-[13px]">{sectionLabel(db, s.sectionId)}</span>
               <span className="hidden md:block w-[170px] text-[13px] truncate">{s.guardianName}</span>
@@ -134,7 +136,7 @@ function RegisterModal({ onClose }: { onClose: () => void }) {
   // it and can restore the suggestion.
   const suggested = suggestStudentNo(db)
   const [form, setForm] = useState({
-    firstName: '', fatherName: '', sex: 'M' as 'M' | 'F', sectionId: db.sections[0].id,
+    firstName: '', fatherName: '', sex: 'male' as Sex, sectionId: db.sections[0].id,
     guardianName: '', guardianPhone: '', studentNo: suggested, schoolRefNo: '',
   })
   const [errs, setErrs] = useState<Record<string, boolean>>({})
@@ -176,8 +178,8 @@ function RegisterModal({ onClose }: { onClose: () => void }) {
         <div className="field">
           <label>{t('sex')}</label>
           <div className="seg">
-            <button type="button" className={form.sex === 'M' ? 'on' : ''} onClick={() => set('sex', 'M')}>{t('male')}</button>
-            <button type="button" className={form.sex === 'F' ? 'on' : ''} onClick={() => set('sex', 'F')}>{t('female')}</button>
+            <button type="button" className={form.sex === 'male' ? 'on' : ''} onClick={() => set('sex', 'male')}>{t('male')}</button>
+            <button type="button" className={form.sex === 'female' ? 'on' : ''} onClick={() => set('sex', 'female')}>{t('female')}</button>
           </div>
         </div>
         <div className="field">
@@ -302,7 +304,7 @@ function RosterPrint({ sectionId }: { sectionId: string }) {
         summary={
           <div className="flex justify-between text-[13px] mb-3">
             <b className="font-display">{sectionLabel(db, sectionId)}</b>
-            <span>{roster.length} {t('students')} · {roster.filter((s) => s.sex === 'M').length} {t('boys')} · {roster.filter((s) => s.sex === 'F').length} {t('girls')}</span>
+            <span>{roster.length} {t('students')} · {roster.filter((s) => s.sex === 'male').length} {t('boys')} · {roster.filter((s) => s.sex === 'female').length} {t('girls')}</span>
           </div>
         }
         headRow={
@@ -313,7 +315,7 @@ function RosterPrint({ sectionId }: { sectionId: string }) {
             <td className="text-dim">{i + 1}</td>
             <td className="whitespace-nowrap">{s.studentNo}</td>
             <td>{personName(s)}</td>
-            <td>{s.sex}</td>
+            <td>{sexShort(s.sex)}</td>
             <td>{s.guardianName}</td>
             <td>{s.guardianPhone}</td>
           </tr>

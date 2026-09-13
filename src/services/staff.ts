@@ -1,4 +1,4 @@
-import type { AuditAction, AuditEntry, Db, Teacher, User } from '../types'
+import type { AuditAction, AuditEntry, Db, Sex, Teacher, User } from '../types'
 import { getDb, update, delay, takeSeq } from './db'
 import { sectionLabel } from '../lib/derive'
 import { newId } from '../lib/id'
@@ -7,7 +7,7 @@ import { actingUserId, assertPermission, can } from './users'
 export interface TeacherInput {
   firstName: string
   fatherName: string
-  sex: 'M' | 'F'
+  sex: Sex
   position: Teacher['position']
   employmentType: Teacher['employmentType']
   hireDate: string
@@ -135,6 +135,9 @@ export async function addTeacher(input: TeacherInput): Promise<Teacher> {
     departedOn: null,
     assignments: [],
   }
+  // The account starts as `invited`: it has no password, so it cannot sign in
+  // until somebody redeems the invitation. Phase 2's invitation flow is what
+  // issues the code and sets that password.
   const user: User = {
     id,
     schoolId,
@@ -143,9 +146,15 @@ export async function addTeacher(input: TeacherInput): Promise<Teacher> {
     sex: input.sex,
     email,
     phone,
-    role: 'teacher',
+    roles: ['teacher'],
     status: 'active',
+    accountStatus: 'invited',
+    avatarUrl: null,
+    onboardingCompletedAt: null,
     createdAt: new Date().toISOString(),
+    lastSignInAt: null,
+    invitedByUserId: actingUserId(),
+    invitedAt: new Date().toISOString(),
   }
   update((d) => {
     d.teachers.push(teacher)

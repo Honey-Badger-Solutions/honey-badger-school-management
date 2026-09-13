@@ -7,6 +7,7 @@ import { Modal } from "@/components/Modal";
 import { useSession, useT } from "@/store/session";
 import { useDb } from "@/services/db";
 import { currentUser } from "@/services/users";
+import { needsOnboarding } from "@/services/onboarding";
 import { ToastHost } from "@/components/Toast";
 import type { TKey } from "@/i18n";
 import type { Role } from "@/types";
@@ -24,6 +25,8 @@ const SCHOOL_ADMIN_NAV: NavItem[] = [
   { to: "/school-admin/fees", icon: "cash", label: "navFees" },
   { to: "/school-admin/exams", icon: "exam", label: "navExams" },
   { to: "/school-admin/staff", icon: "staff", label: "navStaff" },
+  { to: "/school-admin/accounts", icon: "badge", label: "navAccounts" },
+  { to: "/school-admin/staff-attendance", icon: "clipboard", label: "navStaffAttendance" },
   { to: "/school-admin/settings", icon: "settings", label: "navSettings" },
 ];
 
@@ -46,6 +49,8 @@ const FINANCE_NAV: NavItem[] = [
 const STAFF_ADMIN_NAV: NavItem[] = [
   { to: "/staff-admin", icon: "home", label: "navDashboard", end: true },
   { to: "/staff-admin/staff", icon: "staff", label: "navStaff" },
+  { to: "/staff-admin/accounts", icon: "badge", label: "navAccounts" },
+  { to: "/staff-admin/staff-attendance", icon: "clipboard", label: "navStaffAttendance" },
 ];
 
 const PRINT_STAFF_NAV: NavItem[] = [
@@ -85,6 +90,7 @@ export function Shell({ children }: { children: ReactNode }) {
   // staff record and their account are the same row, so this needs no branch.
   const user = currentUser(db);
   const userName = user ? personName(user) : "";
+  const setupPending = needsOnboarding(user);
 
   const ROLE_LABEL_KEY: Record<Role, Parameters<typeof t>[0]> = {
     "saas-admin": "roleSaasAdmin",
@@ -133,11 +139,25 @@ export function Shell({ children }: { children: ReactNode }) {
         <div className="mt-auto flex flex-col gap-3">
           <OnlineDot />
           <div className="flex items-center gap-2.5 px-1">
-            <Avatar name={userName} size={34} />
-            <div className="flex-1 leading-tight min-w-0">
-              <b className="text-[13px] block truncate">{userName}</b>
-              <small className="text-dim text-[11px]">{roleLabel}</small>
-            </div>
+            <NavLink
+              to="/profile"
+              className="flex items-center gap-2.5 flex-1 min-w-0 rounded-[10px] p-1 -m-1 hover:bg-surface2 transition-colors"
+              title={t("navProfile")}
+            >
+              {user?.avatarUrl ? (
+                <img
+                  src={user.avatarUrl}
+                  alt=""
+                  className="w-[34px] h-[34px] rounded-full object-cover shrink-0"
+                />
+              ) : (
+                <Avatar name={userName} size={34} />
+              )}
+              <span className="flex-1 leading-tight min-w-0">
+                <b className="text-[13px] block truncate">{userName}</b>
+                <small className="text-dim text-[11px]">{roleLabel}</small>
+              </span>
+            </NavLink>
             <button
               onClick={doLogout}
               className="w-9 h-9 grid place-items-center rounded-[10px] text-soft hover:text-warn hover:bg-surface2"
@@ -172,6 +192,20 @@ export function Shell({ children }: { children: ReactNode }) {
         </header>
 
         <main className="flex-1 w-full max-w-app mx-auto px-4 pt-4 pb-28 md:px-7 md:pt-7 md:pb-10">
+          {/* Follows an unfinished account around rather than blocking it —
+              onboarding is a checklist, not a gate. */}
+          {setupPending && location.pathname !== "/onboarding" && (
+            <NavLink
+              to="/onboarding"
+              className="no-print flex items-center gap-3 mb-4 p-3.5 rounded-xl border border-line bg-honey/10 hover:border-gold transition-colors"
+            >
+              <span className="w-9 h-9 rounded-xl bg-honey/20 text-gold grid place-items-center shrink-0">
+                <Icon name="alert" size={17} />
+              </span>
+              <b className="flex-1 text-[13px]">{t("setupIncomplete")}</b>
+              <Icon name="chevR" size={17} className="text-dim shrink-0" />
+            </NavLink>
+          )}
           {children}
         </main>
       </div>

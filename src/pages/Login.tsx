@@ -1,122 +1,94 @@
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Icon } from "../components/Icon";
 import { FullLogo } from "../components/Logo";
 import { personName } from "../components/bits";
 import { useDb } from "../services/db";
-import { assignableTeachers } from "../services/staff";
-import { userById, usersByRole } from "../services/users";
+import { AuthError, signIn, startSession } from "../services/auth";
+import { usersInSchool } from "../services/users";
 import { useSession, useT } from "../store/session";
-import type { Role, User } from "../types";
+import { DEMO_PASSWORD } from "../lib/digest";
+import { ROLES, type Role, type User } from "../types";
+import type { TKey } from "../i18n";
+
+const ROLE_LABEL: Record<Role, TKey> = {
+  "saas-admin": "roleSaasAdmin",
+  "school-admin": "roleSchoolAdmin",
+  "staff-admin": "roleStaffAdmin",
+  teacher: "roleTeacher",
+  "finance-officer": "roleFinance",
+  "print-only-staff": "rolePrintStaff",
+};
+
+const FAILURE_KEY = {
+  invalidCredentials: "errInvalidCredentials",
+  accountInactive: "errAccountInactive",
+  accountInvited: "errAccountInvited",
+  otpInvalid: "errOtpInvalid",
+  otpExpired: "errOtpExpired",
+  passwordTooShort: "errPasswordTooShort",
+} as const;
 
 /**
- * Demo sign-in.
+ * Sign in.
  *
- * Picking a role here resolves to a specific demo USER — the session stores
- * that person's id, not the role they picked. Every role has exactly one demo
- * account except teacher, where the picker chooses among the seeded staff.
- *
- * This is the prototype's stand-in for Supabase Auth. Replacing it means
- * swapping this screen for a real sign-in and setting the same session fields
- * from the authenticated user; nothing downstream knows the difference.
+ * Real credentials against the local credential store, plus a demo picker —
+ * the prototype has no mail server, so without the picker there would be no way
+ * to see the other roles. Both paths end in the same `startSession` call, so
+ * swapping the form for Supabase Auth later changes only this screen.
  */
 export default function Login() {
   const t = useT();
   const db = useDb();
-  const login = useSession((s) => s.login);
   const lang = useSession((s) => s.lang);
   const setLang = useSession((s) => s.setLang);
   const navigate = useNavigate();
-  const [role, setRole] = useState<Role | null>(null);
-  // departed staff can no longer sign in
-  const signInList = assignableTeachers(db);
-  const [teacherId, setTeacherId] = useState(signInList[0]?.id ?? "");
 
-  const userForRole = (r: Role): User | undefined =>
-    r === "teacher" ? userById(db, teacherId) : usersByRole(db, r)[0];
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<TKey | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [showDemo, setShowDemo] = useState(false);
 
-  const signInUser = role ? userForRole(role) : undefined;
+  // Always via "/": `Home` decides between the role's dashboard and the setup
+  // checklist. Routing straight to a dashboard here would put a second copy of
+  // that decision in the one place guaranteed to run for a brand-new account.
+  const land = () => navigate("/");
 
-  const roleOptions: {
-    role: Role;
-    label: string;
-    description: string;
-    icon: "badge" | "book" | "users" | "cash" | "printer";
-  }[] = [
-    {
-      role: "saas-admin",
-      label: t("roleSaasAdmin"),
-      description: t("roleSaasAdminSub"),
-      icon: "badge",
-    },
-    {
-      role: "school-admin",
-      label: t("roleSchoolAdmin"),
-      description: t("roleSchoolAdminSub"),
-      icon: "badge",
-    },
-    {
-      role: "staff-admin",
-      label: t("roleStaffAdmin"),
-      description: t("roleStaffAdminSub"),
-      icon: "users",
-    },
-    {
-      role: "teacher",
-      label: t("roleTeacher"),
-      description: t("roleTeacherSub"),
-      icon: "book",
-    },
-    {
-      role: "finance-officer",
-      label: t("roleFinance"),
-      description: t("roleFinanceSub"),
-      icon: "cash",
-    },
-    {
-      role: "print-only-staff",
-      label: t("rolePrintStaff"),
-      description: t("rolePrintStaffSub"),
-      icon: "printer",
-    },
-  ];
-
-  const ROLE_HOME: Record<Role, string> = {
-    "saas-admin": "/saas-admin",
-    "school-admin": "/school-admin",
-    "staff-admin": "/staff-admin",
-    "teacher": "/teacher",
-    "finance-officer": "/finance",
-    "print-only-staff": "/print",
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      await signIn(email, password);
+      land();
+    } catch (err) {
+      setError(
+        err instanceof AuthError ? FAILURE_KEY[err.failure] : "errInvalidCredentials",
+      );
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const go = () => {
-    if (!role || !signInUser) return;
-
-    login({
-      userId: signInUser.id,
-      schoolId: signInUser.schoolId,
-      role: signInUser.role,
-      // a teacher's staff id is their user id — the same row
-      teacherId: signInUser.role === "teacher" ? signInUser.id : null,
-    });
-
-    navigate(ROLE_HOME[role]);
+  /** Demo shortcut: sign in as a seeded account without its password. */
+  const useDemoAccount = (user: User) => {
+    startSession(user, user.roles[0]);
+    land();
   };
 
-  const optCls = (sel: boolean) =>
-    `w-full flex items-center gap-3.5 p-4 rounded-xl border text-left transition-colors min-h-[72px] ${
-      sel
-        ? "border-gold bg-honey/10"
-        : "border-line bg-surface2/60 hover:border-gold"
-    }`;
+  // one representative account per role, so the list stays short
+  const staff = usersInSchool(db, db.schoolId);
+  const demoAccounts = ROLES.map((role) =>
+    staff.find((u) => u.roles.includes(role) && u.accountStatus === "active"),
+  ).filter((u): u is User => !!u);
 
   return (
     <div className="min-h-screen grid place-items-center p-6">
       <div className="w-full max-w-[420px]">
         <div className="flex items-center justify-between mb-5">
           <Link to="/">
-            <FullLogo height={84} />
+            <FullLogo height={72} />
           </Link>
           <div className="seg" role="group" aria-label={t("language")}>
             <button
@@ -133,80 +105,82 @@ export default function Login() {
             </button>
           </div>
         </div>
-        <h1 className="text-[24px] font-bold mb-1">{t("appName")}</h1>
+
+        <h1 className="text-[24px] font-bold mb-1">{t("signIn")}</h1>
         <p className="text-soft text-[13.5px] mb-6">
-          {t("tagline")} — {db.school.name}
+          {t("signInSub")} — {db.school.name}
         </p>
 
-        <p className="sec-h !mt-0">{t("chooseRole")}</p>
-        <div className="flex flex-col gap-2.5 mb-4">
-          {roleOptions.map((option) => {
-            const selected = role === option.role;
-            // Name the person behind the role, so it is visible that signing in
-            // picks an identity. Teachers are chosen in the picker below.
-            const demoUser =
-              option.role === "teacher" ? undefined : usersByRole(db, option.role)[0];
-
-            return (
-              <button
-                key={option.role}
-                className={optCls(selected)}
-                onClick={() => setRole(option.role)}
-                aria-pressed={selected}
-              >
-                <span className="w-11 h-11 rounded-xl bg-honey/15 text-gold grid place-items-center shrink-0">
-                  <Icon name={option.icon} />
-                </span>
-
-                <span className="flex-1">
-                  <b className="font-display font-semibold text-[15px] block">
-                    {option.label}
-                  </b>
-
-                  <small className="text-dim text-[12px]">
-                    {demoUser ? `${personName(demoUser)} · ` : ""}
-                    {option.description}
-                  </small>
-                </span>
-
-                {selected && (
-                  <Icon name="check" size={20} className="text-gold" />
-                )}
-              </button>
-            );
-          })}
-        </div>
-
-        {role === "teacher" && (
+        <form onSubmit={submit}>
           <div className="field">
-            <label htmlFor="pickTeacher">{t("pickTeacher")}</label>
-            <select
-              id="pickTeacher"
-              value={teacherId}
-              onChange={(e) => setTeacherId(e.target.value)}
-            >
-              {signInList.map((x) => (
-                <option key={x.id} value={x.id}>
-                  {personName(x)}
-                </option>
-              ))}
-            </select>
+            <label htmlFor="email">{t("emailAddress")}</label>
+            <input
+              id="email"
+              type="email"
+              autoComplete="username"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
           </div>
-        )}
+          <div className="field">
+            <label htmlFor="password">{t("password")}</label>
+            <input
+              id="password"
+              type="password"
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            {error && <p className="err">{t(error)}</p>}
+          </div>
+          <button className="btn-gold w-full" type="submit" disabled={busy}>
+            {busy ? t("signingIn") : t("signIn")}
+            <Icon name="chevR" size={17} />
+          </button>
+        </form>
 
-        <button
-          className="btn-gold w-full"
-          disabled={!signInUser}
-          onClick={go}
-          style={{ opacity: signInUser ? 1 : 0.5 }}
-        >
-          {t("continueAs")}
-          <Icon name="chevR" size={17} />
-        </button>
+        <div className="mt-6">
+          <button
+            className="btn-ghost btn-sm w-full"
+            onClick={() => setShowDemo((v) => !v)}
+            aria-expanded={showDemo}
+          >
+            {t("demoAccounts")}
+          </button>
 
-        <p className="text-dim text-[12px] text-center mt-5 leading-relaxed">
-          {t("demoNote")}
-        </p>
+          {showDemo && (
+            <div className="mt-3">
+              <p className="text-dim text-[12px] leading-relaxed mb-3">
+                {t("demoAccountsSub")}{" "}
+                <b className="font-display text-soft">{DEMO_PASSWORD}</b>
+              </p>
+              <div className="flex flex-col gap-2">
+                {demoAccounts.map((user) => (
+                  <button
+                    key={user.id}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl border border-line bg-surface2/60 text-left hover:border-gold transition-colors min-h-[56px]"
+                    onClick={() => useDemoAccount(user)}
+                  >
+                    <span className="w-9 h-9 rounded-xl bg-honey/15 text-gold grid place-items-center shrink-0">
+                      <Icon name="badge" size={17} />
+                    </span>
+                    <span className="flex-1 min-w-0">
+                      <b className="font-display font-semibold text-[13.5px] block">
+                        {personName(user)}
+                      </b>
+                      <small className="text-dim text-[11.5px]">
+                        {t(ROLE_LABEL[user.roles[0]])} · {user.email}
+                      </small>
+                    </span>
+                    <Icon name="chevR" size={16} className="text-dim shrink-0" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

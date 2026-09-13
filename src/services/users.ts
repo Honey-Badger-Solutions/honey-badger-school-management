@@ -38,8 +38,20 @@ export function userName(db: Db, userId: string | null | undefined): string {
   return user ? fullName(user) : '—'
 }
 
+/** Users holding this role. `user_roles` is many-to-many, so this is a contains. */
 export function usersByRole(db: Db, role: Role): User[] {
-  return db.users.filter((u) => u.role === role)
+  return db.users.filter((u) => u.roles.includes(role))
+}
+
+/**
+ * Everyone in one school.
+ *
+ * Every staff-facing list goes through this rather than reading `db.users`
+ * directly, so the tenant filter is applied in one place — the same filter RLS
+ * will enforce server-side once there is more than one school.
+ */
+export function usersInSchool(db: Db, schoolId: string): User[] {
+  return db.users.filter((u) => u.schoolId === schoolId)
 }
 
 /** The staff record for a user, if they have one. Not every user is a teacher. */

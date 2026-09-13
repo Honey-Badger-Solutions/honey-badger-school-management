@@ -8,6 +8,7 @@ import { useDb } from '../../services/db'
 import { userName } from '../../services/users'
 import { auditFor, departureImpact, homeroomHolder, homeroomOf, setAssignments, setHomeroom, setTeacherStatus, updateTeacher, visibleTeacher } from '../../services/staff'
 import { sectionLabel } from '../../lib/derive'
+import { sexKey } from '../../lib/enums'
 import { fmtDate, fmtDateTime, todayISO } from '../../lib/dates'
 import { useT } from '../../store/session'
 import type { AuditEntry, Teacher } from '../../types'
@@ -75,7 +76,7 @@ export default function StaffProfile() {
         <Row k={t('position')} v={t(POSITION_KEYS[teacher.position])} />
         <Row k={t('employmentType')} v={t(EMPLOYMENT_KEYS[teacher.employmentType])} />
         <Row k={t('hireDate')} v={fmtDate(teacher.hireDate)} />
-        <Row k={t('sex')} v={teacher.sex === 'M' ? t('male') : t('female')} />
+        <Row k={t('sex')} v={t(sexKey(teacher.sex))} />
       </div>
 
       <p className="sec-h">{t('contactDetails')}</p>

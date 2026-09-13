@@ -10,7 +10,7 @@ import { sectionLabel } from '../../lib/derive'
 import { useT } from '../../store/session'
 import { EMPLOYMENT_KEYS, POSITION_KEYS, STATUS_KEYS } from './StaffProfile'
 import { todayISO } from '../../lib/dates'
-import type { Teacher } from '../../types'
+import type { Sex, Teacher } from '../../types'
 
 const FILTERS = [
   { id: 'active', key: 'statusActive' },
@@ -188,7 +188,7 @@ function AddTeacherModal({ onClose }: { onClose: () => void }) {
   const [form, setForm] = useState({
     firstName: '',
     fatherName: '',
-    sex: 'F' as 'M' | 'F',
+    sex: 'female' as Sex,
     position: 'teacher' as Teacher['position'],
     employmentType: 'full_time' as Teacher['employmentType'],
     hireDate: todayISO(),

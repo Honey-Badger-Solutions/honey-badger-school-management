@@ -55,6 +55,23 @@ and their `User` share **one uuid**, because server-side they are one row.
   rename the person and the history silently re-attributes itself.
 - **Resolve names at render** with `userName(db, id)`.
 - Every record carries `schoolId`; it is the column RLS filters on server-side.
+- `user.roles` is an array (`user_roles` is many-to-many). The session holds the
+  ONE role that is active for this sign-in; permission checks run against that,
+  never the union — holding two roles must not silently grant both.
+
+### Authentication is a stand-in
+`services/auth.ts` and `Db.credentials` exist so the sign-in, invitation and
+password screens can be built before there is a backend. **None of it is
+security** — the credential store sits in localStorage beside the data it
+guards, and `lib/digest.ts` is obfuscation, not a password hash. Supabase Auth
+replaces every function in that file; the session shape does not change, so
+nothing downstream of `useSession` moves. Never type a real password into this
+build, and never add a feature that depends on the credential store being
+trustworthy.
+
+Enum values are **stored as the database spells them** (`sex: 'male'|'female'`,
+not `'M'|'F'`). Short display forms come from `lib/enums.ts` at render time —
+storage format is not a presentation decision.
 
 ### Authorization
 Permissions live in `src/config/permissions.ts` — named capabilities mapped to
@@ -117,6 +134,12 @@ someone leaves.
 - Pages: `src/pages/<role>/<Screen>.tsx`, default export, one file per route
   registered in `App.tsx`. Private sub-components (modals, print bodies) live
   in the same file below the page component.
+- A screen served to **more than one role** goes in a feature folder instead
+  (`src/pages/staff/Accounts.tsx`), routed from each role's path. Where the
+  roles differ is in what they may do, and `useCan()` expresses that inside one
+  component. Do not copy a screen per role — `admin/StaffProfile.tsx` and
+  `staff_admin/StaffProfile.tsx` are an existing duplication to undo, not a
+  pattern to follow.
 - Shared pieces: `src/components/` — `PascalCase.tsx` for single components,
   `bits.tsx` for the small shared atoms (`Avatar`, `PageTitle`, `EmptyState`,
   `OnlineDot`, `SaveChip`, `personName`).

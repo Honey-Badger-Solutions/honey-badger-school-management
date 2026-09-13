@@ -27,6 +27,25 @@ export const ROLES: Role[] = [
 export type UserStatus = "active" | "on_leave" | "departed";
 
 /**
+ * Stored exactly as the database CHECK constraint spells it.
+ *
+ * The app used to hold 'M'/'F'. Those are presentation, not data — a printed
+ * roster wants one letter and a profile wants a word — so the short form is now
+ * produced by `sexShort()` at render time and never written down.
+ */
+export type Sex = "male" | "female";
+
+/**
+ * How an invited account is progressing toward being usable.
+ *
+ * `invited` — created by an admin, OTP sent, no password yet.
+ * `active`  — password set; can sign in.
+ * A user can be `active` and still owe onboarding; that is tracked separately
+ * by `onboardingCompletedAt` so an incomplete profile never blocks sign-in.
+ */
+export type AccountStatus = "invited" | "active";
+
+/**
  * A person who can sign in — the single identity every action is attributed to.
  *
  * Mirrors `public.users`, whose `id` IS the `auth.users` id: one row per person,
@@ -45,17 +64,33 @@ export interface User {
   schoolId: string;
   firstName: string; // users.first_name
   fatherName: string; // users.father_name
-  sex: "M" | "F" | null;
+  sex: Sex | null;
+  /** `users.email`. Identifies the Auth account — changing it is not a profile
+   *  edit but an Auth operation, so the profile screen shows it read-only. */
   email: string;
   phone: string;
   /**
-   * The app's role for this user. The database keeps roles in a separate
-   * `user_roles` table keyed (user_id, role), so a user can hold several; the
-   * prototype carries exactly one and picks it at login.
+   * Every role this user holds.
+   *
+   * `user_roles` is keyed (user_id, role), so one user can hold several. The
+   * session carries whichever one is ACTIVE for this sign-in; permission checks
+   * always run against that, never against the whole set — holding two roles
+   * must not silently grant their union.
    */
-  role: Role;
+  roles: Role[];
   status: UserStatus;
+  /** Whether the account can sign in yet — see AccountStatus. */
+  accountStatus: AccountStatus;
+  /** Profile picture, held as a data URL. A Supabase Storage object URL later. */
+  avatarUrl: string | null;
+  /** Null until the user finishes onboarding; see services/onboarding.ts. */
+  onboardingCompletedAt: string | null;
   createdAt: string; // ISO
+  lastSignInAt: string | null;
+  /** Who invited them, and when. Null for accounts that predate invitations
+   *  (the seeded staff) or that were created some other way. */
+  invitedByUserId: string | null;
+  invitedAt: string | null;
 }
 
 /**
@@ -109,7 +144,7 @@ export interface Student {
   schoolRefNo: string;
   firstName: string;
   fatherName: string; // Ethiopian convention: father's name follows given name
-  sex: "M" | "F";
+  sex: Sex;
   gradeId: string;
   sectionId: string;
   guardianName: string;
@@ -150,7 +185,7 @@ export interface Teacher {
   schoolId: string;
   firstName: string;
   fatherName: string;
-  sex: "M" | "F";
+  sex: Sex;
   position: TeacherPosition;
   employmentType: EmploymentType;
   hireDate: string; // ISO
@@ -218,6 +253,39 @@ export interface RegisterDay {
 
 /** key: `${sectionId}|${date}` — see regKey() in lib/derive.ts */
 export type RegisterBook = Record<string, RegisterDay>;
+
+/**
+ * A staff member's attendance on one day.
+ *
+ * Maps to `public.teacher_attendance`, which already exists — but that table is
+ * shaped for clock-in/clock-out (`checked_in_at`, `checked_out_at`, an
+ * approval workflow) while the office actually marks staff present/absent/late
+ * the same way it marks a class. So `mark` is the field this app writes, and it
+ * is the one column that table does not yet have; see the Supabase notes.
+ *
+ * One row per person per day, mirroring student attendance: `markedByUserId`
+ * survives the marker leaving, and the same "business date, not clock" rule
+ * applies.
+ */
+export interface StaffAttendanceRecord {
+  id: string;
+  schoolId: string;
+  /** `teacher_attendance.user_id` — a User, not a Teacher: the office marks
+   *  every kind of staff member, not only the ones who teach. */
+  userId: string;
+  /** business date '2026-08-10' — `teacher_attendance.business_date` */
+  date: string;
+  mark: AttendanceMark;
+  /** who recorded it; survives that person leaving */
+  markedByUserId: string | null;
+  /** device clock, **display only** */
+  clientRecordedAt: string;
+  /** server commit order — the only thing resolution may compare */
+  serverSeq: number;
+}
+
+/** key: `${date}|${userId}` — see staffAttKey() in services/staffAttendance.ts */
+export type StaffAttendanceBook = Record<string, StaffAttendanceRecord>;
 
 /**
  * The kinds of work a school marks. Fixed list — a school tunes the weights,
@@ -422,6 +490,31 @@ export interface AuditEntry {
   after: string | null;
 }
 
+/**
+ * A local stand-in for the one thing this prototype must never really own.
+ *
+ * **Supabase Auth replaces this file's worth of logic entirely.** It exists so
+ * the sign-in, invitation and password screens can be built and exercised
+ * before there is a backend — nothing here is a security mechanism. The hash is
+ * obfuscation, not protection: the whole record sits in localStorage where any
+ * script on the page can read it.
+ *
+ * Consequences, which the UI states plainly:
+ *   - never enter a real password into this build
+ *   - none of this data migrates; real accounts get real Auth credentials
+ *
+ * When Supabase lands, delete `Db.credentials`, `services/auth.ts`'s hashing,
+ * and the OTP fields — `auth.users` and the Auth API own all of it.
+ */
+export interface Credential {
+  userId: string;
+  /** null while the account is `invited` and has not set one yet */
+  passwordHash: string | null;
+  /** hashed one-time code from an invitation; cleared once redeemed */
+  otpHash: string | null;
+  otpExpiresAt: string | null;
+}
+
 export interface Db {
   /** Schema version of this cached snapshot — see SCHEMA_VERSION in services/db.ts */
   version: number;
@@ -437,6 +530,8 @@ export interface Db {
   school: School;
   /** Everyone who can sign in. Never deleted — history points at them. */
   users: User[];
+  /** PROTOTYPE ONLY, keyed by user id — see Credential. Supabase Auth owns this. */
+  credentials: Record<string, Credential>;
   grades: Grade[];
   sections: Section[];
   subjects: Subject[];
@@ -445,6 +540,8 @@ export interface Db {
   attendance: AttendanceBook;
   /** submission state per class-day, parallel to `attendance` */
   registers: RegisterBook;
+  /** staff presence per person-day — `teacher_attendance` */
+  staffAttendance: StaffAttendanceBook;
   examPeriods: ExamPeriod[];
   /** how much each kind of work counts toward a subject mark */
   grading: GradingWeights;

@@ -1,8 +1,9 @@
 import type {
-  Assessment, AttendanceBook, AttendanceMark, Db, FeeItem, Grade, MarkBook, Payment, RegisterBook, Role, School, Section,
-  MarkAudit, Student, Subject, Teacher, User,
+  Assessment, AttendanceBook, AttendanceMark, Credential, Db, FeeItem, Grade, MarkBook, Payment, RegisterBook, Role, School, Section, Sex,
+  MarkAudit, StaffAttendanceBook, Student, Subject, Teacher, User,
 } from '../types'
 import { schoolDays, addDays, todayISO } from '../lib/dates'
+import { digest, DEMO_OTP, DEMO_PASSWORD } from '../lib/digest'
 
 /* Deterministic RNG so "Reset demo data" always rebuilds the same school. */
 function mulberry32(a: number) {
@@ -47,18 +48,47 @@ const CREATED_AT = '2025-09-01T00:00:00.000Z'
  * shared `rnd` stream is what reproduces the students, marks and attendance,
  * and taking extra draws here would shift every one of them.
  */
-const OFFICE_STAFF: { role: Role; firstName: string; fatherName: string; sex: 'M' | 'F'; phone: string }[] = [
-  { role: 'school-admin', firstName: 'Hiwot', fatherName: 'Assefa', sex: 'F', phone: '0911 204 118' },
-  { role: 'saas-admin', firstName: 'Selam', fatherName: 'Bekele', sex: 'F', phone: '0911 776 302' },
-  { role: 'staff-admin', firstName: 'Yonas', fatherName: 'Girma', sex: 'M', phone: '0912 448 907' },
-  { role: 'finance-officer', firstName: 'Meron', fatherName: 'Tadesse', sex: 'F', phone: '0913 559 271' },
-  { role: 'print-only-staff', firstName: 'Dawit', fatherName: 'Hailu', sex: 'M', phone: '0914 663 015' },
+const OFFICE_STAFF: {
+  role: Role
+  firstName: string
+  fatherName: string
+  sex: Sex
+  phone: string
+  /** Left un-onboarded so the onboarding flow is reachable in the demo. */
+  onboarded?: false
+}[] = [
+  { role: 'school-admin', firstName: 'Hiwot', fatherName: 'Assefa', sex: 'female', phone: '0911 204 118' },
+  { role: 'saas-admin', firstName: 'Selam', fatherName: 'Bekele', sex: 'female', phone: '0911 776 302' },
+  { role: 'staff-admin', firstName: 'Yonas', fatherName: 'Girma', sex: 'male', phone: '0912 448 907' },
+  { role: 'finance-officer', firstName: 'Meron', fatherName: 'Tadesse', sex: 'female', phone: '0913 559 271' },
+  // A recent hire with no phone number on file: signs in fine, but the setup
+  // checklist has something real outstanding, which is what makes the flow
+  // worth looking at in the demo.
+  { role: 'print-only-staff', firstName: 'Dawit', fatherName: 'Hailu', sex: 'male', phone: '', onboarded: false },
 ]
 
-const emailFor = (firstName: string, fatherName: string) =>
-  `${firstName}.${fatherName}`.toLowerCase() + '@honeybadger.et'
+/**
+ * Mint a unique school address.
+ *
+ * Names collide — the seed draws teacher names at random from the same pools
+ * the office staff use, so two people called Meron Tadesse is normal and real
+ * schools handle it exactly like this. Uniqueness is not cosmetic here: email
+ * is the sign-in handle, `auth.users.email` is UNIQUE, and a duplicate would
+ * mean one of the two could never sign in.
+ */
+function makeEmailFactory() {
+  const taken = new Set<string>()
+  return (firstName: string, fatherName: string): string => {
+    const base = `${firstName}.${fatherName}`.toLowerCase()
+    let candidate = `${base}@honeybadger.et`
+    for (let n = 2; taken.has(candidate); n++) candidate = `${base}${n}@honeybadger.et`
+    taken.add(candidate)
+    return candidate
+  }
+}
 
 export function buildSeed(): Db {
+  const emailFor = makeEmailFactory()
   const schoolId = seedId()
   const school: School = {
     id: schoolId,
@@ -83,12 +113,18 @@ export function buildSeed(): Db {
     sex: o.sex,
     email: emailFor(o.firstName, o.fatherName),
     phone: o.phone,
-    role: o.role,
+    roles: [o.role],
     status: 'active',
+    accountStatus: 'active',
+    avatarUrl: null,
+    onboardingCompletedAt: o.onboarded === false ? null : CREATED_AT,
     createdAt: CREATED_AT,
+    lastSignInAt: null,
+    invitedByUserId: null, // founding staff — they predate invitations
+    invitedAt: null,
   }))
   /** The administrator the seeded receipts were issued by. */
-  const adminUser = users.find((u) => u.role === 'school-admin')!
+  const adminUser = users.find((u) => u.roles.includes('school-admin'))!
 
   const grades: Grade[] = [5, 6, 7].map((lvl) => ({ id: seedId(), level: lvl, name: `Grade ${lvl}` }))
 
@@ -111,10 +147,10 @@ export function buildSeed(): Db {
   for (const sec of sections) {
     const count = int(42, 58)
     for (let i = 0; i < count; i++) {
-      const sex = rnd() < 0.5 ? 'M' : 'F'
-      const firstName = sex === 'M' ? pick(MALE) : pick(FEMALE)
+      const sex: Sex = rnd() < 0.5 ? 'male' : 'female'
+      const firstName = sex === 'male' ? pick(MALE) : pick(FEMALE)
       const fatherName = pick(FATHERS)
-      const guardianSex = rnd() < 0.7 ? 'M' : 'F'
+      const guardianSex = rnd() < 0.7 ? 'male' : 'female'
       const seq = sid++
       students.push({
         id: seedId(),
@@ -128,7 +164,7 @@ export function buildSeed(): Db {
         sex,
         gradeId: sec.gradeId,
         sectionId: sec.id,
-        guardianName: `${guardianSex === 'M' ? pick(MALE) : pick(FEMALE)} ${pick(FATHERS)}`,
+        guardianName: `${guardianSex === 'male' ? pick(MALE) : pick(FEMALE)} ${pick(FATHERS)}`,
         guardianPhone: `09${int(10, 94)} ${int(100, 999)} ${int(100, 999)}`,
         joinedYear: YEAR,
         status: 'active',
@@ -148,8 +184,8 @@ export function buildSeed(): Db {
     'full_time', 'part_time', 'full_time', 'part_time', 'full_time', 'part_time',
   ]
   for (let i = 0; i < 12; i++) {
-    const sex = i % 3 === 2 ? 'F' : rnd() < 0.5 ? 'F' : 'M'
-    const firstName = sex === 'M' ? pick(MALE) : pick(FEMALE)
+    const sex: Sex = i % 3 === 2 ? 'female' : rnd() < 0.5 ? 'female' : 'male'
+    const firstName = sex === 'male' ? pick(MALE) : pick(FEMALE)
     const fatherName = pick(FATHERS)
     const hireDate = `${2016 + int(0, 9)}-${String(int(1, 12)).padStart(2, '0')}-${String(int(1, 28)).padStart(2, '0')}`
     const phone = `09${int(10, 94)} ${int(100, 999)} ${int(100, 999)}`
@@ -181,9 +217,15 @@ export function buildSeed(): Db {
       sex,
       email,
       phone,
-      role: 'teacher',
+      roles: ['teacher'],
       status: 'active',
+      accountStatus: 'active',
+      avatarUrl: null,
+      onboardingCompletedAt: CREATED_AT,
       createdAt: CREATED_AT,
+      lastSignInAt: null,
+      invitedByUserId: null,
+      invitedAt: null,
     })
   }
   // Each of the 6 subjects gets 2 teachers; each teacher takes the subject in 3 sections.
@@ -214,6 +256,28 @@ export function buildSeed(): Db {
   // (history points at it) but is no longer active, so they cannot sign in.
   const userById = new Map(users.map((u) => [u.id, u]))
   for (const t of teachers) userById.get(t.userId)!.status = t.status
+
+  // One invitation left un-redeemed, so the accounts list has a pending row and
+  // the OTP flow can be walked without first inviting somebody.
+  const invitedId = seedId()
+  users.push({
+    id: invitedId,
+    schoolId,
+    firstName: 'Kalkidan',
+    fatherName: 'Wolde',
+    sex: 'female',
+    email: emailFor('Kalkidan', 'Wolde'),
+    phone: '',
+    roles: ['finance-officer'],
+    status: 'active',
+    accountStatus: 'invited',
+    avatarUrl: null,
+    onboardingCompletedAt: null,
+    createdAt: addDays(todayISO(), -2),
+    lastSignInAt: null,
+    invitedByUserId: adminUser.id,
+    invitedAt: addDays(todayISO(), -2),
+  })
 
   /* ---- attendance: last 25 school days per section ----
    * One record per student per day. The RNG is drawn in exactly the same
@@ -252,6 +316,31 @@ export function buildSeed(): Db {
     registers[`${sec.id}|${todayISO()}`] = {
       date: todayISO(), sectionId: sec.id,
       submittedAt: submitted ? `${todayISO()}T08:45:00` : null,
+    }
+  }
+
+  /* ---- staff attendance: the last 10 school days ----
+   * Drawn from its OWN stream. Sharing `rnd` would shift every later draw and
+   * rebuild a different school — the same trap the id stream avoids. */
+  const staffRnd = mulberry32(0xA77E4D)
+  const staffAttendance: StaffAttendanceBook = {}
+  const staffDays = schoolDays(10, addDays(todayISO(), -1))
+  // Marked by the office, which is the school admin in the seeded history.
+  for (const date of staffDays) {
+    for (const u of users) {
+      if (u.status === 'departed' || u.accountStatus !== 'active') continue
+      const r = staffRnd()
+      const mark: AttendanceMark = r < 0.94 ? 'P' : r < 0.985 ? 'L' : 'A'
+      staffAttendance[`${date}|${u.id}`] = {
+        id: seedId(),
+        schoolId,
+        userId: u.id,
+        date,
+        mark,
+        markedByUserId: adminUser.id,
+        clientRecordedAt: `${date}T07:55:00.000Z`,
+        serverSeq: 0, // assigned in timestamp order at the end
+      }
     }
   }
 
@@ -401,17 +490,33 @@ export function buildSeed(): Db {
    * sequence and never a clock. */
   const stamped: { at: string; set: (n: number) => void }[] = []
   for (const k in attendance) stamped.push({ at: attendance[k].clientRecordedAt, set: (n) => { attendance[k].serverSeq = n } })
+  for (const k in staffAttendance) stamped.push({ at: staffAttendance[k].clientRecordedAt, set: (n) => { staffAttendance[k].serverSeq = n } })
   for (const k in markAudit) stamped.push({ at: markAudit[k].at, set: (n) => { markAudit[k].serverSeq = n } })
   for (const p of payments) stamped.push({ at: p.clientRecordedAt, set: (n) => { p.serverSeq = n } })
   stamped.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0))
   let seq = 1
   for (const item of stamped) item.set(seq++)
 
+  // Every seeded account shares one published demo password. Prototype-only —
+  // see lib/digest.ts and the note at the top of services/auth.ts.
+  const credentials: Record<string, Credential> = {}
+  for (const u of users) {
+    const invited = u.accountStatus === 'invited'
+    credentials[u.id] = {
+      userId: u.id,
+      // an invited account has no password until its owner sets one
+      passwordHash: invited ? null : digest(DEMO_PASSWORD),
+      otpHash: invited ? digest(DEMO_OTP) : null,
+      otpExpiresAt: invited ? addDays(todayISO(), 5) : null,
+    }
+  }
+
   return {
     version: 0, // stamped with SCHEMA_VERSION by services/db.ts
     schoolId,
     school,
     users,
+    credentials,
     grades,
     sections,
     subjects,
@@ -419,6 +524,7 @@ export function buildSeed(): Db {
     teachers,
     attendance,
     registers,
+    staffAttendance,
     examPeriods,
     grading: {
       homework: 5, classwork: 5, exercise_book: 5, worksheets: 5,

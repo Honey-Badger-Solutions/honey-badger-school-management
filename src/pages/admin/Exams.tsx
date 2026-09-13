@@ -7,6 +7,7 @@ import { PrintArea, PrintFoot, PrintHead, printNow } from '../../components/Prin
 import { useDb } from '../../services/db'
 import { addExamPeriod, saveComment } from '../../services/exams'
 import { classAverage, sectionLabel, sectionReport, studentAttendance, type ReportRow } from '../../lib/derive'
+import { sexKey } from '../../lib/enums'
 import { fmtDate, todayISO } from '../../lib/dates'
 import { useT } from '../../store/session'
 import type { ExamPeriod } from '../../types'
@@ -205,7 +206,7 @@ export function ReportCardPaper({ exam, row, rows, commentOverride }: {
       <div className="flex justify-between gap-4 text-[13px] mb-4">
         <div>
           <b className="font-display text-[16px] block">{personName(s)}</b>
-          <span className="text-soft">{sectionLabel(db, s.sectionId)} · {s.sex === 'M' ? t('male') : t('female')} · {exam.name}</span>
+          <span className="text-soft">{sectionLabel(db, s.sectionId)} · {t(sexKey(s.sex))} · {exam.name}</span>
         </div>
         <div className="text-right text-soft">
           {fmtDate(todayISO())}

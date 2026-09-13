@@ -53,6 +53,11 @@ export const PERMISSIONS = [
   /** Change a PAST register. Deliberately separate from `update`: a correction
    *  after the day is closed can move a fee waiver or a truancy report. */
   "attendance.correct",
+  // staff attendance — separate from student attendance on purpose: marking a
+  // colleague present is an HR act, and the roles that do it are not the ones
+  // who take a class register
+  "staff_attendance.view",
+  "staff_attendance.record",
   // assessments
   "assessments.view",
   "assessments.create",
@@ -78,8 +83,10 @@ export const PERMISSIONS = [
   "reports.print",
   // users & security
   "users.view",
+  /** Create an account and send its invitation. */
   "users.create",
   "users.update",
+  /** Deactivate or reactivate an account — never delete: history points at it. */
   "users.disable",
   "users.assign_roles",
   "audit.view",
@@ -158,6 +165,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "academic.assign_teachers",
     "attendance.view",
     "attendance.correct",
+    "staff_attendance.view",
+    "staff_attendance.record",
     "assessments.view",
     "assessments.correct_marks",
     "exams.view",
@@ -182,7 +191,9 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "school.manage_settings",
   ],
 
-  // Staff records and workload only — no students, no money, no marks.
+  // Staff records, accounts and presence — no students, no money, no marks.
+  // Holds the same staff-account permissions as a school admin: inviting and
+  // deactivating colleagues is precisely this role's job.
   "staff-admin": [
     "staff.view",
     "staff.create",
@@ -194,7 +205,13 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "academic.view",
     "academic.assign_teachers",
     "attendance.view",
+    "staff_attendance.view",
+    "staff_attendance.record",
     "users.view",
+    "users.create",
+    "users.update",
+    "users.disable",
+    "users.assign_roles",
     "audit.view",
     "reports.view",
     "reports.generate",
