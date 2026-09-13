@@ -6,7 +6,7 @@ import { useDb } from "../../services/db";
 import { currentUser } from "../../services/users";
 import { allBalances } from "../../services/fees";
 import { fmtDate, todayISO } from "../../lib/dates";
-import { fmtETB } from "../../lib/money";
+import { birrInputFilter, fmtBirr, fmtETB, parseBirrToSantim } from "../../lib/money";
 import { useT } from "../../store/session";
 import { Modal } from '../../components/Modal'
 import { toast } from '../../components/Toast'
@@ -29,7 +29,7 @@ function StructureTab() {
       <div className="grid grid-cols-1 xmd:grid-cols-2 lg:grid-cols-3 gap-4">
         {db.grades.map((g) => {
           const items = db.feeItems.filter((f) => f.gradeId === g.id)
-          const total = items.reduce((a, f) => a + f.amount, 0)
+          const total = items.reduce((a, f) => a + f.amountSantim, 0)
           return (
             <div key={g.id} className="card-pad">
               <div className="flex items-center justify-between mb-2">
@@ -42,7 +42,7 @@ function StructureTab() {
                     {f.name}
                     <small className="text-dim block text-[11px]">{f.kind === 'term' ? t('perTerm') : t('perYear')}</small>
                   </span>
-                  <b className="font-display">{fmtETB(f.amount)}</b>
+                  <b className="font-display">{fmtETB(f.amountSantim)}</b>
                 </div>
               ))}
               <button className="btn-ghost btn-sm w-full mt-3" onClick={() => setAdding(g.id)}>
@@ -66,9 +66,11 @@ function AddFeeModal({ gradeId, onClose }: { gradeId: string; onClose: () => voi
   const grade = db.grades.find((g) => g.id === gradeId)!
 
   const submit = async () => {
-    const amt = parseInt(amount, 10)
-    if (!name.trim() || !amt || amt <= 0) return
-    await addFeeItem(gradeId, name.trim(), amt, kind)
+    // Typed in Birr, stored in santim — the conversion happens here, at the
+    // edge, and nowhere else. See lib/money.ts.
+    const santim = parseBirrToSantim(amount)
+    if (!name.trim() || santim === null || santim <= 0) return
+    await addFeeItem(gradeId, name.trim(), santim, kind)
     toast(t('settingsSaved'))
     onClose()
   }
@@ -81,7 +83,7 @@ function AddFeeModal({ gradeId, onClose }: { gradeId: string; onClose: () => voi
       </div>
       <div className="field">
         <label htmlFor="af-amt">{t('amountETB')}</label>
-        <input id="af-amt" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value.replace(/\D/g, ''))} />
+        <input id="af-amt" inputMode="decimal" value={amount} onChange={(e) => setAmount(birrInputFilter(e.target.value))} />
       </div>
       <div className="field">
         <label>{t('term')}</label>
@@ -101,13 +103,13 @@ function AddFeeModal({ gradeId, onClose }: { gradeId: string; onClose: () => voi
 
 /** Money in a KPI tile: the amount stays big, the currency shrinks — at 360px
  *  "ETB 333,400" at full size wraps onto two lines and breaks the tile. */
-function Birr({ amount }: { amount: number }) {
+function Birr({ santim }: { santim: number }) {
   return (
     <span className="whitespace-nowrap">
       <span className="text-[12px] font-semibold text-dim align-middle mr-1">
         ETB
       </span>
-      {amount.toLocaleString("en-US")}
+      {fmtBirr(santim)}
     </span>
   );
 }
@@ -161,7 +163,7 @@ export default function FinanceDashboard() {
         <div className="kpi">
           <div className="k">{t("collected")}</div>
           <div className="v text-good">
-            <Birr amount={collected} />
+            <Birr santim={collected} />
           </div>
           <div className="text-[11.5px] text-dim mt-1 hidden sm:block">
             {t("familiesPaidFully")
@@ -172,7 +174,7 @@ export default function FinanceDashboard() {
         <div className="kpi">
           <div className="k">{t("outstanding")}</div>
           <div className="v text-warn">
-            <Birr amount={outstanding} />
+            <Birr santim={outstanding} />
           </div>
           <div className="text-[11.5px] text-dim mt-1 hidden sm:block">
             {defaulters} {t("defaultersShort")}

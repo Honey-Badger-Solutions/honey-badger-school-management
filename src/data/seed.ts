@@ -3,6 +3,7 @@ import type {
   MarkAudit, StaffAttendanceBook, Student, Subject, Teacher, User,
 } from '../types'
 import { schoolDays, addDays, todayISO } from '../lib/dates'
+import { birrToSantim } from '../lib/money'
 import { digest, DEMO_OTP, DEMO_PASSWORD } from '../lib/digest'
 
 /* Deterministic RNG so "Reset demo data" always rebuilds the same school. */
@@ -436,10 +437,11 @@ export function buildSeed(): Db {
   const assessmentScores: Record<string, number> = {}
 
   /* ---- fees ---- */
+  // Quoted in whole Birr, stored in santim — the unit the schema uses. See lib/money.ts.
   const feeItems: FeeItem[] = grades.flatMap((g): FeeItem[] => [
-    { id: seedId(), gradeId: g.id, name: `Tuition — Term 1`, amount: 800 + (g.level - 5) * 100, kind: 'term' },
-    { id: seedId(), gradeId: g.id, name: 'Registration', amount: 300, kind: 'annual' },
-    { id: seedId(), gradeId: g.id, name: 'Books & materials', amount: 250, kind: 'annual' },
+    { id: seedId(), gradeId: g.id, name: `Tuition — Term 1`, amountSantim: birrToSantim(800 + (g.level - 5) * 100), kind: 'term' },
+    { id: seedId(), gradeId: g.id, name: 'Registration', amountSantim: birrToSantim(300), kind: 'annual' },
+    { id: seedId(), gradeId: g.id, name: 'Books & materials', amountSantim: birrToSantim(250), kind: 'annual' },
   ])
 
   const payments: Payment[] = []
@@ -447,11 +449,11 @@ export function buildSeed(): Db {
   const start = addDays(todayISO(), -55)
   for (const st of students) {
     const items = feeItems.filter((f) => f.gradeId === st.gradeId)
-    const totalDue = items.reduce((a, f) => a + f.amount, 0)
+    const totalDue = items.reduce((a, f) => a + f.amountSantim, 0)
     const r = rnd()
     let payNow = 0
     if (r < 0.62) payNow = totalDue // fully paid
-    else if (r < 0.85) payNow = items[0].amount + (rnd() < 0.5 ? items[1].amount : 0) // partial
+    else if (r < 0.85) payNow = items[0].amountSantim + (rnd() < 0.5 ? items[1].amountSantim : 0) // partial
     // else unpaid
     if (payNow > 0) {
       const payDate = addDays(start, int(0, 50))
@@ -459,8 +461,8 @@ export function buildSeed(): Db {
       let remaining = payNow
       for (const f of items) {
         if (remaining <= 0) break
-        const amt = Math.min(f.amount, remaining)
-        lines.push({ feeItemId: f.id, label: f.name, amount: amt })
+        const amt = Math.min(f.amountSantim, remaining)
+        lines.push({ feeItemId: f.id, label: f.name, amountSantim: amt })
         remaining -= amt
       }
       payments.push({
@@ -468,7 +470,7 @@ export function buildSeed(): Db {
         receiptNo: `HB-${String(receipt).padStart(4, '0')}`,
         studentId: st.id,
         lines,
-        total: payNow,
+        totalSantim: payNow,
         date: payDate,
         method: pick(['cash', 'cash', 'cash', 'telebirr', 'bank'] as const),
         receivedByUserId: adminUser.id,
@@ -542,6 +544,36 @@ export function buildSeed(): Db {
       academicYear: '2018 E.C. (2025/26)',
       term: 'Term 1',
     },
+    // Defaults are the layouts and fields a school gets without touching
+    // anything: A4 receipt, standard report card, everything meaningful shown.
+    // `receiptShowBalance` is the one exception — see PrintSettings.
+    printSettings: {
+      receiptLayout: 'standard',
+      reportCardLayout: 'standard',
+      logoUrl: null,
+      showLogo: true,
+      showNameAm: true,
+      showCity: true,
+      showPhone: true,
+      accent: 'honey',
+      headerNote: '',
+      footerNote: '',
+      receiptShowCashier: true,
+      receiptShowMethod: true,
+      receiptShowBalance: false,
+      receiptShowSignature: true,
+      reportShowRank: true,
+      reportShowClassAverage: true,
+      reportShowAttendance: true,
+      reportShowComment: true,
+      reportShowSignatures: true,
+      principalName: '',
+      updatedAt: null,
+      updatedByUserId: null,
+    },
+    // Seeded EMPTY on purpose: the print queue is a record of things people
+    // asked for, and an empty dashboard is the honest starting state.
+    printRequests: [],
     // The seeded history was issued before this school had a second device.
     // The next block starts clear of it, rounded up so block boundaries stay
     // legible in a ledger.

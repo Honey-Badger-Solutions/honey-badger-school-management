@@ -81,6 +81,14 @@ export const PERMISSIONS = [
   "reports.view",
   "reports.generate",
   "reports.print",
+  // printing — choosing the school's layouts is configuration, asking someone
+  // else to print is a different act again, and working the queue is a third
+  "print.configure",
+  /** Send a document to the Print-Only Staff queue ("Print by staff"). */
+  "print_requests.create",
+  "print_requests.view",
+  /** Mark a queued job printed or cancelled. */
+  "print_requests.process",
   // users & security
   "users.view",
   /** Create an account and send its invitation. */
@@ -180,6 +188,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "reports.view",
     "reports.generate",
     "reports.print",
+    "print.configure",
+    "print_requests.create",
     "users.view",
     "users.create",
     "users.update",
@@ -232,6 +242,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "reports.view",
     "reports.generate",
     "reports.print",
+    // a cashier hands the parent the receipt, or asks the print desk to
+    "print_requests.create",
     "audit.view",
     "school.view",
   ],
@@ -256,7 +268,10 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "school.view",
   ],
 
-  "print-only-staff": READ_ONLY,
+  // Read, print, and work the print queue — nothing else. The two queue
+  // permissions sit outside READ_ONLY on purpose: closing a request changes a
+  // record, which is precisely what "read only" promises it will not do.
+  "print-only-staff": [...READ_ONLY, "print_requests.view", "print_requests.process"],
 };
 
 /** Prebuilt sets — permission checks run on every render of every guarded UI. */

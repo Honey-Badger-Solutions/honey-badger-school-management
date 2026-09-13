@@ -12,7 +12,7 @@ export async function recordPayment(studentId: string, lines: PaymentLine[], met
   const receivedByUserId = actingUserId()
   if (!receivedByUserId) throw new Error('Not permitted: recording a payment requires a signed-in user.')
   await delay(250)
-  const total = lines.reduce((a, l) => a + l.amount, 0)
+  const totalSantim = lines.reduce((a, l) => a + l.amountSantim, 0)
   // Allocated from this device's leased block, so a second device collecting
   // fees at the same time cannot print the same number. Throws
   // ReceiptsExhausted rather than guessing — see services/receipts.ts.
@@ -22,7 +22,7 @@ export async function recordPayment(studentId: string, lines: PaymentLine[], met
     receiptNo,
     studentId,
     lines,
-    total,
+    totalSantim,
     // business date: the school day the money changed hands, in the school's
     // timezone — not a UTC slice of a timestamp
     date: todayISO(),
@@ -38,15 +38,19 @@ export async function recordPayment(studentId: string, lines: PaymentLine[], met
   return payment
 }
 
-export async function addFeeItem(gradeId: string, name: string, amount: number, kind: 'term' | 'annual'): Promise<void> {
+/** `amountSantim` is integer santim, not Birr — the caller parses the form
+ *  field with `parseBirrToSantim`. See lib/money.ts. */
+export async function addFeeItem(gradeId: string, name: string, amountSantim: number, kind: 'term' | 'annual'): Promise<void> {
+  assertPermission('fees.configure', 'changing the fee structure')
   await delay()
   update((d) => {
-    d.feeItems.push({ id: newId(), gradeId, name, amount, kind })
+    d.feeItems.push({ id: newId(), gradeId, name, amountSantim, kind })
   })
 }
 
 /* ---- derived helpers (pure, shared by screens + print views) ---- */
 
+/** All three figures are integer santim. */
 export interface BalanceRow {
   studentId: string
   due: number
@@ -56,8 +60,8 @@ export interface BalanceRow {
 
 export function balanceFor(db: Db, studentId: string): BalanceRow {
   const st = db.students.find((s) => s.id === studentId)!
-  const due = db.feeItems.filter((f) => f.gradeId === st.gradeId).reduce((a, f) => a + f.amount, 0)
-  const paid = db.payments.filter((p) => p.studentId === studentId).reduce((a, p) => a + p.total, 0)
+  const due = db.feeItems.filter((f) => f.gradeId === st.gradeId).reduce((a, f) => a + f.amountSantim, 0)
+  const paid = db.payments.filter((p) => p.studentId === studentId).reduce((a, p) => a + p.totalSantim, 0)
   return { studentId, due, paid, balance: due - paid }
 }
 

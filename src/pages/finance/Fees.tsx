@@ -4,9 +4,10 @@ import { Icon } from '../../components/Icon'
 import { Avatar, EmptyState, PageTitle, personName } from '../../components/bits'
 import { Modal } from '../../components/Modal'
 import { toast } from '../../components/Toast'
-import { PaginatedReport, PrintArea, PrintFoot, PrintHead, printNow } from '../../components/Print'
+import { PaginatedReport, PrintArea, printNow } from '../../components/Print'
+import { ReceiptLines, ReceiptPaper } from '../../components/print/Receipt'
+import { PrintByStaffButton } from '../../components/print/PrintByStaff'
 import { useDb } from '../../services/db'
-import { userName } from '../../services/users'
 import { balanceFor, defaulterRows, paidRows, recordPayment } from '../../services/fees'
 import { ReceiptsExhausted } from '../../services/receipts'
 import { sectionLabel } from '../../lib/derive'
@@ -90,16 +91,16 @@ function PayModal({ onClose, onDone }: { onClose: () => void; onDone: (p: Paymen
     const map: Record<string, number> = {}
     if (!student) return map
     for (const p of db.payments.filter((x) => x.studentId === student.id)) {
-      for (const l of p.lines) map[l.feeItemId] = (map[l.feeItemId] ?? 0) + l.amount
+      for (const l of p.lines) map[l.feeItemId] = (map[l.feeItemId] ?? 0) + l.amountSantim
     }
     return map
   }, [db, student])
 
-  const unpaid = items.filter((f) => (paidPerItem[f.id] ?? 0) < f.amount)
+  const unpaid = items.filter((f) => (paidPerItem[f.id] ?? 0) < f.amountSantim)
   const lines: PaymentLine[] = unpaid
     .filter((f) => selected.includes(f.id))
-    .map((f) => ({ feeItemId: f.id, label: f.name, amount: f.amount - (paidPerItem[f.id] ?? 0) }))
-  const total = lines.reduce((a, l) => a + l.amount, 0)
+    .map((f) => ({ feeItemId: f.id, label: f.name, amountSantim: f.amountSantim - (paidPerItem[f.id] ?? 0) }))
+  const total = lines.reduce((a, l) => a + l.amountSantim, 0)
 
   const submit = async () => {
     if (!student || lines.length === 0) return
@@ -156,7 +157,7 @@ function PayModal({ onClose, onDone }: { onClose: () => void; onDone: (p: Paymen
           <p className="sec-h !mt-0">{t('payFor')}</p>
           {unpaid.length === 0 && <p className="text-good text-[13.5px] mb-4 font-medium">{t('fullyPaid')} ✓</p>}
           {unpaid.map((f) => {
-            const remaining = f.amount - (paidPerItem[f.id] ?? 0)
+            const remaining = f.amountSantim - (paidPerItem[f.id] ?? 0)
             const on = selected.includes(f.id)
             return (
               <label key={f.id} className="lrow cursor-pointer !px-0">
@@ -168,7 +169,7 @@ function PayModal({ onClose, onDone }: { onClose: () => void; onDone: (p: Paymen
                 />
                 <span className="flex-1 text-[13.5px]">
                   {f.name}
-                  {remaining < f.amount && <small className="text-dim block text-[11px]">{t('paid')}: {fmtETB(paidPerItem[f.id] ?? 0)}</small>}
+                  {remaining < f.amountSantim && <small className="text-dim block text-[11px]">{t('paid')}: {fmtETB(paidPerItem[f.id] ?? 0)}</small>}
                 </span>
                 <b className="font-display">{fmtETB(remaining)}</b>
               </label>
@@ -203,55 +204,29 @@ function PayModal({ onClose, onDone }: { onClose: () => void; onDone: (p: Paymen
 
 /* ---------------- receipt (modal + print) ---------------- */
 
+/**
+ * The paper is `components/print/Receipt.tsx` — shared with the school admin's
+ * screen and the Print-Only Staff queue, and it renders whichever layout the
+ * school picked in Print settings.
+ */
 function ReceiptModal({ payment, onClose }: { payment: Payment; onClose: () => void }) {
   const t = useT()
-  const db = useDb()
-  const student = db.students.find((s) => s.id === payment.studentId)!
   return (
     <>
       <Modal title={`${t('receipt')} ${payment.receiptNo}`} onClose={onClose}>
-        <ReceiptBody payment={payment} />
-        <div className="flex gap-2.5 mt-5">
+        <ReceiptLines payment={payment} />
+        <div className="flex flex-wrap gap-2.5 mt-5">
           <button className="btn-ghost flex-1" onClick={onClose}>{t('done')}</button>
+          <PrintByStaffButton what={{ kind: 'receipt', subjectId: payment.id }} />
           <button className="btn-gold flex-1" onClick={() => printNow()}>
             <Icon name="printer" size={17} />{t('printReceipt')}
           </button>
         </div>
       </Modal>
       <PrintArea>
-        <div className="max-w-[520px]">
-          <PrintHead doc={t('receipt')} />
-          <div className="flex justify-between text-[13px] mb-1">
-            <span>{t('receiptNo')} <b className="font-display">{payment.receiptNo}</b></span>
-            <span>{fmtDate(payment.date)}</span>
-          </div>
-          <p className="text-[13px] mb-3">{t('receivedFrom')}: <b>{personName(student)}</b> ({sectionLabel(db, student.sectionId)})</p>
-          <ReceiptBody payment={payment} />
-          <p className="text-[12px] mt-4">{t('receivedBy')}: {userName(db, payment.receivedByUserId)} — {t(payment.method)}</p>
-          <p className="text-[12px] italic text-soft mt-1">{t('thankYou')}</p>
-          <div className="border-t border-dashed border-line mt-4" />
-          <PrintFoot />
-        </div>
+        <ReceiptPaper payment={payment} />
       </PrintArea>
     </>
-  )
-}
-
-function ReceiptBody({ payment }: { payment: Payment }) {
-  const t = useT()
-  return (
-    <div>
-      {payment.lines.map((l) => (
-        <div key={l.feeItemId} className="flex justify-between py-2 border-b border-line-soft text-[13.5px]">
-          <span>{l.label}</span>
-          <span className="font-display">{fmtAmount(l.amount)}</span>
-        </div>
-      ))}
-      <div className="flex justify-between pt-3 font-display font-bold text-[15.5px]">
-        <span>{t('total')}</span>
-        <span className="text-gold">ETB {fmtAmount(payment.total)}</span>
-      </div>
-    </div>
   )
 }
 

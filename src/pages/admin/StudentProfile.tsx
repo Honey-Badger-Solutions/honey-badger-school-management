@@ -180,7 +180,7 @@ function FeesTab({ id }: { id: string }) {
                 <b className="text-[13.5px] block">{p.receiptNo}</b>
                 <small className="text-dim text-[11.5px]">{fmtDate(p.date)} · {t(p.method)}</small>
               </span>
-              <b className="font-display text-[14px]">{fmtETB(p.total)}</b>
+              <b className="font-display text-[14px]">{fmtETB(p.totalSantim)}</b>
             </div>
           ))}
         </div>

@@ -3,12 +3,12 @@ import { Icon } from '../../components/Icon'
 import { Avatar, EmptyState, PageTitle, personName } from '../../components/bits'
 import { Modal } from '../../components/Modal'
 import { toast } from '../../components/Toast'
-import { PrintArea, PrintFoot, PrintHead, printNow } from '../../components/Print'
+import { PrintArea, printNow } from '../../components/Print'
+import { ReportCardPaper } from '../../components/print/ReportCard'
+import { PrintByStaffButton } from '../../components/print/PrintByStaff'
 import { useDb } from '../../services/db'
 import { addExamPeriod, saveComment } from '../../services/exams'
-import { classAverage, sectionLabel, sectionReport, studentAttendance, type ReportRow } from '../../lib/derive'
-import { sexKey } from '../../lib/enums'
-import { fmtDate, todayISO } from '../../lib/dates'
+import { classAverage, sectionLabel, sectionReport } from '../../lib/derive'
 import { useT } from '../../store/session'
 import type { ExamPeriod } from '../../types'
 
@@ -162,13 +162,20 @@ function ReportCardModal({ exam, sectionId, studentId, onClose }: {
           <label htmlFor="rc-comment">{t('teacherComment')}</label>
           <textarea id="rc-comment" rows={3} value={comment} onChange={(e) => setComment(e.target.value)} placeholder={t('commentPlaceholder')} />
         </div>
-        <div className="flex gap-2.5">
+        <div className="flex flex-wrap gap-2.5">
           <button
             className="btn-ghost flex-1"
             onClick={async () => { await saveComment(exam.id, studentId, comment); toast(t('commentSaved')); onClose() }}
           >
             {t('save')}
           </button>
+          {/* Queue it for the print desk instead. The comment is saved first,
+              because the desk prints from live data — an unsaved comment would
+              simply be missing from the sheet they hand over. */}
+          <PrintByStaffButton
+            what={{ kind: 'report_card', subjectId: studentId, examId: exam.id }}
+            onBeforeRequest={() => saveComment(exam.id, studentId, comment)}
+          />
           <button className="btn-gold flex-1" onClick={saveAndPrint}>
             <Icon name="printer" size={17} />{t('printReport')}
           </button>
@@ -181,86 +188,3 @@ function ReportCardModal({ exam, sectionId, studentId, onClose }: {
   )
 }
 
-/** The paper report card — HoneyBadger's signature print design. */
-export function ReportCardPaper({ exam, row, rows, commentOverride }: {
-  exam: ExamPeriod
-  row: ReportRow
-  rows: ReportRow[]
-  commentOverride?: string
-}) {
-  const t = useT()
-  const db = useDb()
-  const s = row.student
-  const att = studentAttendance(db, s.id)
-  const ranked = rows.filter((r) => r.average !== null).length
-  const comment = commentOverride ?? db.comments[`${exam.id}|${s.id}`] ?? ''
-  const avg = classAverage(rows)
-  // Falls back to the previous holder so a report card printed after the
-  // homeroom teacher departs still carries the name of who actually taught.
-  const section = db.sections.find((sec) => sec.id === s.sectionId)
-  const homeroom = db.teachers.find((x) => x.id === (section?.homeroomTeacherId ?? section?.previousHomeroomTeacherId))
-
-  return (
-    <div className="max-w-[680px] mx-auto">
-      <PrintHead doc={t('reportCard')} />
-      <div className="flex justify-between gap-4 text-[13px] mb-4">
-        <div>
-          <b className="font-display text-[16px] block">{personName(s)}</b>
-          <span className="text-soft">{sectionLabel(db, s.sectionId)} · {t(sexKey(s.sex))} · {exam.name}</span>
-        </div>
-        <div className="text-right text-soft">
-          {fmtDate(todayISO())}
-        </div>
-      </div>
-
-      <table className="tbl w-full mb-4">
-        <thead>
-          <tr>
-            <th>{t('subject')}</th>
-            <th className="!text-right">{t('marksTab')} ({t('outOf')} {exam.maxMark})</th>
-          </tr>
-        </thead>
-        <tbody>
-          {db.subjects.map((sub, i) => (
-            <tr key={sub.id}>
-              <td>{sub.name}</td>
-              <td className="text-right font-display font-semibold">{row.scores[i] ?? '—'}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      {/* summary band */}
-      <div className="grid grid-cols-4 gap-2.5 mb-4">
-        {[
-          [t('average'), row.average !== null ? row.average.toFixed(1) : '—'],
-          [t('rank'), row.average !== null ? `${row.rank} / ${ranked}` : '—'],
-          [t('classAverage'), avg !== null ? avg.toFixed(1) : '—'],
-          [t('attendanceRate'), att.total ? `${Math.round(((att.present + att.late) / att.total) * 100)}%` : '—'],
-        ].map(([k, v]) => (
-          <div key={k} className="border border-line rounded-xl p-2.5 text-center bg-surface2/50">
-            <div className="text-[10px] font-display font-bold uppercase tracking-[0.4px] text-dim">{k}</div>
-            <div className="font-display font-bold text-[17px] mt-0.5">{v}</div>
-          </div>
-        ))}
-      </div>
-
-      <div className="border border-line rounded-xl p-3 min-h-[64px] mb-6">
-        <div className="text-[10px] font-display font-bold uppercase tracking-[0.4px] text-dim mb-1">{t('teacherComment')}</div>
-        <p className="text-[13px] leading-relaxed">{comment || ' '}</p>
-      </div>
-
-      <div className="grid grid-cols-2 gap-8 text-[12px] text-soft">
-        <div>
-          <div className="border-b border-ink/60 h-9" />
-          <p className="mt-1">{t('roleTeacher')} — {homeroom ? personName(homeroom) : ''}</p>
-        </div>
-        <div>
-          <div className="border-b border-ink/60 h-9" />
-          <p className="mt-1">{t('guardian')} — {s.guardianName}</p>
-        </div>
-      </div>
-      <PrintFoot />
-    </div>
-  )
-}

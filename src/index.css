@@ -119,3 +119,16 @@ html { scrollbar-width: thin; scrollbar-color: #d8cfb8 transparent; }
   .tbl thead { display: table-header-group; }
 }
 @page { margin: 14mm; }
+
+/* Thermal receipts — an 80mm roll, not a sheet.
+   The named page carries the roll size; the width below is what actually keeps
+   the content inside 80mm in browsers that ignore named pages, so this
+   degrades to a narrow column on A4 rather than to a clipped receipt. */
+@page thermal { size: 80mm auto; margin: 3mm; }
+.print-thermal {
+  page: thermal;
+  width: 72mm;
+  max-width: 72mm;
+  font-size: 10.5px;
+  line-height: 1.35;
+}

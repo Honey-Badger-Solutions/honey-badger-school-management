@@ -25,6 +25,7 @@ import SchoolAdminExams from "@/pages/admin/Exams";
 import SchoolAdminStaff from "@/pages/admin/Staff";
 import SchoolAdminStaffProfile from "@/pages/admin/StaffProfile";
 import SchoolAdminSettings from "@/pages/admin/Settings";
+import SchoolAdminPrintSettings from "@/pages/admin/PrintSettings";
 // finance pages
 import FinanceDashboard from "@/pages/finance/Dashboard";
 import FinanceFees from "@/pages/finance/Fees";
@@ -118,6 +119,7 @@ export default function App() {
         <Route path="/school-admin/staff/:id" element={<Guard need="school-admin"><SchoolAdminStaffProfile /></Guard>} />
         <Route path="/school-admin/accounts" element={<Guard need="school-admin"><Accounts /></Guard>} />
         <Route path="/school-admin/staff-attendance" element={<Guard need="school-admin"><StaffAttendance /></Guard>} />
+        <Route path="/school-admin/print-settings" element={<Guard need="school-admin"><SchoolAdminPrintSettings /></Guard>} />
         <Route path="/school-admin/settings" element={<Guard need="school-admin"><SchoolAdminSettings /></Guard>} />
 
         <Route path="/finance" element={<Guard need="finance-officer"><FinanceDashboard /></Guard>} />

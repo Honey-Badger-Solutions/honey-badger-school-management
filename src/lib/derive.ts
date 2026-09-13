@@ -124,6 +124,21 @@ export function sectionReport(db: Db, examId: string, sectionId: string): Report
   return rows
 }
 
+/**
+ * Class average per subject, aligned with `db.subjects` — the extra column on
+ * the detailed report card.
+ *
+ * Rounded to the same 1 dp as every other printed average, at source, so a
+ * component never re-rounds a raw number (CONVENTIONS "Numbers on paper").
+ */
+export function subjectAverages(rows: ReportRow[]): (number | null)[] {
+  if (!rows.length) return []
+  return rows[0].scores.map((_, i) => {
+    const vals = rows.map((r) => r.scores[i]).filter((v): v is number => v !== null)
+    return vals.length ? roundAvg(vals.reduce((a, b) => a + b, 0) / vals.length) : null
+  })
+}
+
 export function classAverage(rows: ReportRow[]): number | null {
   const vals = rows.map((r) => r.average).filter((a): a is number => a !== null)
   if (!vals.length) return null

@@ -8,7 +8,7 @@ import { getCompliance } from '../../services/compliance'
 import { registerState } from '../../services/attendance'
 import { countMarks, marksBySectionOn, sectionLabel } from '../../lib/derive'
 import { fmtDate, todayISO } from '../../lib/dates'
-import { fmtETB } from '../../lib/money'
+import { fmtBirr, fmtETB } from '../../lib/money'
 import { useT } from '../../store/session'
 
 /**
@@ -82,11 +82,11 @@ function CompliancePanel() {
 
 /** Money in a KPI tile: the amount stays big, the currency shrinks — at 360px
  *  "ETB 333,400" at full size wraps onto two lines and breaks the tile. */
-function Birr({ amount }: { amount: number }) {
+function Birr({ santim }: { santim: number }) {
   return (
     <span className="whitespace-nowrap">
       <span className="text-[12px] font-semibold text-dim align-middle mr-1">ETB</span>
-      {amount.toLocaleString('en-US')}
+      {fmtBirr(santim)}
     </span>
   )
 }
@@ -145,12 +145,12 @@ export default function Dashboard() {
         </div>
         <div className="kpi">
           <div className="k">{t('collected')}</div>
-          <div className="v text-good"><Birr amount={collected} /></div>
+          <div className="v text-good"><Birr santim={collected} /></div>
           <div className="text-[11.5px] text-dim mt-1">{db.settings.term}</div>
         </div>
         <div className="kpi">
           <div className="k">{t('outstanding')}</div>
-          <div className="v text-warn"><Birr amount={outstanding} /></div>
+          <div className="v text-warn"><Birr santim={outstanding} /></div>
           <div className="text-[11.5px] text-dim mt-1">{defaulters} {t('defaultersShort')}</div>
         </div>
       </div>

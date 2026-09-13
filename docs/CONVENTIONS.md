@@ -128,7 +128,13 @@ someone leaves.
   back to English.
 - Dates: store ISO strings; display ONLY via `fmtDate`/`fmtDateShort`
   (`src/lib/dates.ts`) — the Ethiopian-calendar swap point.
-- Money: whole ETB integers; display via `fmtETB`/`fmtAmount` (`src/lib/money.ts`).
+- Money: **integer santim** (1 ETB = 100), because that is what the schema
+  stores (`amount_santim`, `total_santim`). Every field and parameter carrying
+  money is named `…Santim`; an `amount` with no unit is what let the prototype
+  hold Birr while the database held santim. Convert only at the edges —
+  `parseBirrToSantim` on the way in from a form, `fmtETB`/`fmtAmount`/`fmtBirr`
+  on the way out (`src/lib/money.ts`). Never a float Birr amount: a balance
+  built from floats never quite reaches zero.
 
 ## Components & naming
 - Pages: `src/pages/<role>/<Screen>.tsx`, default export, one file per route
@@ -193,6 +199,51 @@ filters use `.seg`; for a back link copy the inline utilities used in
   on screen) with `<PrintHead doc>` letterhead + `<PrintFoot>`, triggered by
   `printNow()`. On print the app root is `display:none` — never
   `visibility:hidden`, which leaves layout boxes behind and emits blank pages.
+### What the school may change
+Print settings (`db.printSettings`, `src/pages/admin/PrintSettings.tsx`) let a
+school pick **one of the app's layouts** and decide what appears inside it —
+logo, Amharic name, city, phone, accent colour, header/footer text, and a set of
+show/hide fields per document. There is deliberately **no designer**: a school
+that can move the total off a receipt has produced something that is not a
+receipt, and a report card whose columns move is no longer comparable with the
+one the same school printed last term. The structure is the application's.
+
+Adding an option means adding a field to `PrintSettings`, a control on that
+screen, and a branch in the document — in that order. Adding a *layout* means a
+new value in `ReceiptLayout`/`ReportCardLayout` and a new component beside the
+existing ones; do not grow one layout with conditionals until it is two.
+
+`PrintHead`/`PrintFoot` read the settings themselves, so a new paper document
+inherits the school's letterhead choices for free. Colours resolve through
+`ACCENT_BAND`/`ACCENT_TEXT` in `src/lib/print.ts` — never a hex in a component.
+
+### Where the paper lives
+A document printed from more than one screen is a component in
+`src/components/print/`, not a copy in each page:
+
+| Document | Component |
+|---|---|
+| receipt (standard A4, thermal 80mm) | `components/print/Receipt.tsx` |
+| report card (standard, detailed) | `components/print/ReportCard.tsx` |
+
+Both take an optional `layout` prop, used **only** by the settings preview,
+which has to show a layout before it is saved. Everywhere else they read
+`db.printSettings` so the desk and the office cannot print different paper.
+
+The thermal receipt sizes itself from `.print-thermal` in `index.css`
+(`@page thermal { size: 80mm auto }` plus a hard `width: 72mm`). The width is
+not belt-and-braces: headless Chrome and some print paths ignore `@page size`
+entirely, and the clamp is what keeps the content on the roll when they do.
+
+### Print by staff
+`<PrintByStaffButton what={…}>` queues a document for the Print-Only Staff
+member instead of printing it here. A request stores a **reference** —
+`(kind, subjectId, examId)` — never a rendered document, and the paper is
+re-derived at the moment it prints. Snapshotting instead would mean a corrected
+mark or a renamed cashier printing wrong hours later, with nothing on the sheet
+to say which version you are holding. A screen with an unsaved edit passes
+`onBeforeRequest` so what the desk prints is what the requester saw.
+
 ### Which print component to reach for
 Ask one question: **is this one document about one thing, or a list of many?**
 

@@ -387,14 +387,16 @@ export interface FeeItem {
   id: string;
   gradeId: string;
   name: string;
-  amount: number; // whole ETB
+  /** `fee_items.amount_santim` — integer santim (1 ETB = 100). See lib/money.ts. */
+  amountSantim: number;
   kind: "term" | "annual";
 }
 
 export interface PaymentLine {
   feeItemId: string;
   label: string;
-  amount: number;
+  /** `payment_lines.amount_santim` — integer santim. */
+  amountSantim: number;
 }
 
 export interface Payment {
@@ -402,7 +404,8 @@ export interface Payment {
   receiptNo: string; // 'HB-0001'
   studentId: string;
   lines: PaymentLine[];
-  total: number;
+  /** `payments.total_santim` — integer santim; the sum of the lines. */
+  totalSantim: number;
   /** business date — the day the money changed hands, client-set user intent */
   date: string;
   method: "cash" | "bank" | "telebirr";
@@ -515,6 +518,113 @@ export interface Credential {
   otpExpiresAt: string | null;
 }
 
+/* ------------------------------------------------------------------ *
+ * Printing
+ *
+ * Paper is the product here: a receipt in a parent's hand and a report card in
+ * a file are what the school keeps. Two things are configurable, and no more —
+ * WHICH of the app's layouts to use, and what to show inside it. The layout
+ * itself is the application's, never the school's: a designer would let a
+ * school produce a receipt that is not a receipt.
+ * ------------------------------------------------------------------ */
+
+/**
+ * `standard` — A4, full letterhead, the filing copy.
+ * `thermal`  — 80mm roll, no letterhead graphics, for a counter printer.
+ */
+export type ReceiptLayout = "standard" | "thermal";
+
+/**
+ * `standard` — one mark per subject, summary band, comment, signatures.
+ * `detailed` — adds out-of, class average and a grade letter per subject,
+ *               plus the attendance breakdown.
+ */
+export type ReportCardLayout = "standard" | "detailed";
+
+/** Band and figure colour. `ink` exists for mono printers and plain paper. */
+export type PrintAccent = "honey" | "ink";
+
+/**
+ * One row per school — how that school's paper looks.
+ *
+ * Every field is either a choice between layouts the app owns or a
+ * show/hide/text option inside one. Nothing here can change the STRUCTURE of a
+ * document, which is why there is no designer: a school that can move the total
+ * off a receipt has produced something a court would not accept.
+ */
+export interface PrintSettings {
+  receiptLayout: ReceiptLayout;
+  reportCardLayout: ReportCardLayout;
+  /** Letterhead logo as a data URL — a Storage object URL later. Null = the
+   *  HoneyBadger mark, which is the default rather than a blank space. */
+  logoUrl: string | null;
+  showLogo: boolean;
+  showNameAm: boolean;
+  showCity: boolean;
+  showPhone: boolean;
+  accent: PrintAccent;
+  /** Free text under the letterhead — a motto, a licence number. */
+  headerNote: string;
+  /** Free text in the footer, beside the school name. */
+  footerNote: string;
+  receiptShowCashier: boolean;
+  receiptShowMethod: boolean;
+  /** Print the student's remaining balance under the total. Off by default:
+   *  a receipt is proof of what was paid, and schools differ on whether the
+   *  debt belongs on the same piece of paper. */
+  receiptShowBalance: boolean;
+  receiptShowSignature: boolean;
+  reportShowRank: boolean;
+  reportShowClassAverage: boolean;
+  reportShowAttendance: boolean;
+  reportShowComment: boolean;
+  reportShowSignatures: boolean;
+  /** Printed beneath the second signature line. Empty prints the line alone. */
+  principalName: string;
+  updatedAt: string | null;
+  updatedByUserId: string | null;
+}
+
+/** The documents a Print-Only Staff member can be asked to produce. */
+export type PrintDocKind = "receipt" | "report_card";
+
+/**
+ * `pending` → `completed` when the paper is handed over, or `cancelled`.
+ * Deliberately three states: an "in progress" flag on a job that takes thirty
+ * seconds is a state nobody would ever clear.
+ */
+export type PrintRequestStatus = "pending" | "completed" | "cancelled";
+
+/**
+ * "Print this for me" — a job queued for the Print-Only Staff member.
+ *
+ * It stores a REFERENCE, not a rendered document: `subjectId` is a payment id
+ * or a student id, and the paper is re-derived from live data when it prints.
+ * Snapshotting the document instead would mean a corrected mark or a renamed
+ * cashier printing wrong hours later, and there is no way to tell from the
+ * paper which version you are holding.
+ */
+export interface PrintRequest {
+  id: string;
+  schoolId: string;
+  kind: PrintDocKind;
+  /** payment id for a receipt, student id for a report card */
+  subjectId: string;
+  /** which exam a report card is for; null for a receipt */
+  examId: string | null;
+  copies: number;
+  /** what the requester wants the print staff to know */
+  note: string;
+  status: PrintRequestStatus;
+  requestedByUserId: string;
+  /** device clock, **display only** */
+  requestedAt: string;
+  processedByUserId: string | null;
+  processedAt: string | null;
+  /** server commit order — what orders the queue, not `requestedAt` */
+  serverSeq: number;
+}
+
 export interface Db {
   /** Schema version of this cached snapshot — see SCHEMA_VERSION in services/db.ts */
   version: number;
@@ -554,6 +664,10 @@ export interface Db {
   feeItems: FeeItem[];
   payments: Payment[];
   settings: SchoolSettings;
+  /** How this school's paper looks — see PrintSettings. */
+  printSettings: PrintSettings;
+  /** The Print-Only Staff queue. Empty is the normal state. */
+  printRequests: PrintRequest[];
   /** leases by deviceId — see services/receipts.ts */
   receiptLeases: Record<string, ReceiptLease>;
   /** where the next block starts. The SERVER owns this; it lives here only

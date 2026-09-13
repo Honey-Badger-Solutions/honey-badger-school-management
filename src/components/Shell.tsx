@@ -27,6 +27,7 @@ const SCHOOL_ADMIN_NAV: NavItem[] = [
   { to: "/school-admin/staff", icon: "staff", label: "navStaff" },
   { to: "/school-admin/accounts", icon: "badge", label: "navAccounts" },
   { to: "/school-admin/staff-attendance", icon: "clipboard", label: "navStaffAttendance" },
+  { to: "/school-admin/print-settings", icon: "printer", label: "navPrintSettings" },
   { to: "/school-admin/settings", icon: "settings", label: "navSettings" },
 ];
 
@@ -54,7 +55,7 @@ const STAFF_ADMIN_NAV: NavItem[] = [
 ];
 
 const PRINT_STAFF_NAV: NavItem[] = [
-  { to: "/print", icon: "home", label: "navDashboard", end: true },
+  { to: "/print", icon: "printer", label: "navPrintQueue", end: true },
 ];
 
 export function Shell({ children }: { children: ReactNode }) {
